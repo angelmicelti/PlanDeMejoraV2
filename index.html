@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Plan de Mejora - IES Virgen de Villadiego</title>
     
     <!-- Meta tags para PWA -->
@@ -40,10 +40,13 @@
 
     <style>
         .hidden { display: none !important; }
+
+        /* ===== Login ===== */
         #login-overlay {
             position: fixed; inset: 0; z-index: 99999;
             background: linear-gradient(135deg, #0d6efd 0%, #4a00e0 100%);
             display: flex; align-items: center; justify-content: center;
+            padding: 20px;
         }
         #login-overlay .login-card {
             background: white; border-radius: 1rem; padding: 2.5rem;
@@ -53,94 +56,255 @@
         #login-overlay .login-card .form-control { font-size: 1rem; padding: 0.65rem 0.85rem; }
         #login-overlay .login-card .btn-primary { padding: 0.65rem; font-size: 1rem; }
         #login-overlay .login-icon { width: 56px; height: 56px; margin: 0 auto 1rem; background: #eff6ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        header { position: relative; padding-right: 200px; }
-        @media (max-width: 768px) { header { padding-right: 20px; } }
-        :root {--primary-color: #0d6efd; --secondary-color: #6c757d; --accent-color: #198754;}
-        body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; overflow-x: hidden;}
-        .welcome-screen {position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, var(--primary-color), #4a00e0); color: white; cursor: pointer; transition: all 0.5s ease; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; padding: 20px; text-align: center;}
-        .welcome-screen.hidden {display: none;}
-        .welcome-screen:hover {background: linear-gradient(135deg, #4a00e0, var(--primary-color));}
-        .app-container {display: none; padding: 20px 0;}
-        .app-container.visible {display: block;}
-        .filter-section, .config-section, .report-section {background-color: white; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px;}
-        .filter-toggle, .config-toggle, .report-toggle {cursor: pointer; color: var(--primary-color); font-weight: bold; margin-bottom: 15px; display: flex; align-items: center;}
-        .filter-toggle:hover, .config-toggle:hover, .report-toggle:hover {text-decoration: underline;}
-        .filter-content, .config-content, .report-content {overflow: hidden; transition: max-height 0.3s ease;}
-        .filter-content.collapsed, .config-content.collapsed, .report-content.collapsed {max-height: 0;}
-        .propuesta-card {background-color: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 20px; margin-bottom: 20px; transition: transform 0.3s ease, box-shadow 0.3s ease; border-left: 4px solid var(--primary-color);}
-        .propuesta-card:hover {transform: translateY(-5px); box-shadow: 0 6px 12px rgba(0,0,0,0.1);}
-        .propuesta-id {font-weight: bold; color: var(--primary-color); font-size: 1.1rem;}
-        .indicador-item {background-color: #f8f9fa; border-radius: 5px; padding: 10px; margin-bottom: 10px;}
-        .responsable {font-weight: bold; color: var(--accent-color);}
-        .area-title {color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-bottom: 20px; font-size: 1.5rem;}
-        .factor-title {color: var(--secondary-color); font-size: 1.1rem; margin-top: 20px; cursor: pointer; text-decoration: underline; padding: 10px 0;}
-        .factor-title:hover {color: var(--primary-color);}
-        .no-results {text-align: center; padding: 40px; color: var(--secondary-color);}
-        .back-to-top {position: fixed; bottom: 20px; right: 20px; background-color: var(--primary-color); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; opacity: 0; transition: opacity 0.3s;}
-        .back-to-top.visible {opacity: 1;}
-        .estado-propuesta {margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;}
-        .estado-check {margin-right: 15px;}
-        .estado-label {margin-right: 10px; font-weight: normal;}
-        .estado-no-iniciada {color: #dc3545;}
-        .estado-en-proceso {color: #ffc107;}
-        .estado-conseguida {color: #198754;}
-        .indicadores-toggle {cursor: pointer; color: var(--primary-color); font-weight: bold; margin-bottom: 10px; display: inline-block;}
-        .indicadores-toggle:hover {text-decoration: underline;}
-        .indicadores-container {overflow: hidden; transition: max-height 0.3s ease;}
-        .indicadores-container.collapsed {max-height: 0;}
-        .config-options {padding-top: 15px;}
-        .factores-modal .modal-dialog {max-width: 90%;}
-        .factores-table {width: 100%; border-collapse: collapse;}
-        .factores-table th, .factores-table td {border: 1px solid #ddd; padding: 8px; text-align: left;}
-        .factores-table th {background-color: #f2f2f2; font-weight: bold;}
-        .factores-table tr:nth-child(even) {background-color: #f9f9f9;}
-        .report-options {padding-top: 15px;}
-        .estado-checkbox {margin-right: 10px;}
-        .checkbox-label {margin-right: 15px;}
-        .factor-sin-propuestas {color: #6c757d; font-style: italic; margin-top: 10px;}
-        
-        /* Resaltado de filtros activos */
-        .filtro-highlight {background-color: #fff3cd; padding: 1px 4px; border-radius: 3px; font-weight: bold;}
-        .estado-highlight {background-color: #fff3cd; padding: 2px 8px; border-radius: 4px; box-shadow: 0 0 0 2px #ffc107;}
-        
-        /* Estilos para PWA */
-        .install-prompt {position: fixed; bottom: 20px; left: 20px; background-color: var(--primary-color); color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1001; display: none;}
-        .install-prompt button {background: white; color: var(--primary-color); border: none; padding: 8px 16px; border-radius: 4px; margin-left: 10px; cursor: pointer; font-weight: bold;}
-        .install-prompt button:hover {background: #f8f9fa;}
-        .offline-indicator {position: fixed; top: 0; left: 0; right: 0; background-color: #ffc107; color: #000; text-align: center; padding: 8px; z-index: 1002; display: none;}
-        
-        @media (max-width: 768px) {
-            .welcome-screen h1 {font-size: 2rem;}
-            .welcome-screen h2 {font-size: 1.5rem;}
-            .welcome-screen p {font-size: 1rem;}
-            .area-title {font-size: 1.3rem;}
-            .factor-title {font-size: 1rem;}
-            .propuesta-card {padding: 15px;}
-            .back-to-top {width: 40px; height: 40px; bottom: 15px; right: 15px;}
-            .filter-section .row > div {margin-bottom: 15px;}
-            .estado-check {margin-right: 8px;}
-            .estado-label {margin-right: 5px; font-size: 0.9rem;}
-            .factores-modal .modal-dialog {max-width: 95%; margin: 10px auto;}
-            .config-toggle, .report-toggle, .filter-toggle {font-size: 0.95rem;}
-            .config-section, .report-section, .filter-section {padding: 15px;}
-            .btn {font-size: 0.9rem; padding: 8px 12px;}
-            .install-prompt {left: 10px; right: 10px; bottom: 10px;}
+
+        /* ===== Variables y base ===== */
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --accent-color: #198754;
+            --header-height: auto;
         }
-        
-        @media (max-width: 576px) {
-            .container {padding-left: 10px; padding-right: 10px;}
-            .welcome-screen h1 {font-size: 1.8rem;}
-            .welcome-screen h2 {font-size: 1.3rem;}
-            header h1 {font-size: 2rem;}
-            .area-title {font-size: 1.2rem;}
-            .propuesta-card {padding: 12px;}
-            .back-to-top {width: 35px; height: 35px; bottom: 10px; right: 10px;}
-            .back-to-top svg {width: 18px; height: 18px;}
-            .filter-section .form-label {font-size: 0.9rem;}
-            .estado-propuesta {margin-top: 10px; padding-top: 10px;}
-            .config-options .btn, .report-options .btn, .filter-content .btn {width: 100%; margin-bottom: 10px;}
-            .factores-table th, .factores-table td {padding: 6px; font-size: 0.85rem;}
-            .modal-header h5 {font-size: 1.1rem;}
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ===== Header ===== */
+        header { position: relative; padding: 1rem 1rem 1rem 1rem; text-align: center; }
+        header h1 { font-size: 2rem; margin-bottom: 0.25rem; }
+        #curso-subtitulo { margin-bottom: 0; }
+        #auth-status {
+            position: static; transform: none;
+            display: flex; flex-direction: row; flex-wrap: wrap;
+            align-items: center; justify-content: center;
+            gap: 8px; margin-top: 0.75rem;
+        }
+        @media (min-width: 769px) {
+            header { position: relative; text-align: left; }
+            #auth-status {
+                position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+                flex-direction: column; align-items: flex-end;
+            }
+        }
+
+        /* ===== Welcome screen ===== */
+        .welcome-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, var(--primary-color), #4a00e0);
+            color: white; cursor: pointer; transition: all 0.5s ease;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 1000; padding: 20px; text-align: center;
+        }
+        .welcome-screen.hidden { display: none; }
+        .welcome-screen:hover { background: linear-gradient(135deg, #4a00e0, var(--primary-color)); }
+
+        /* ===== App container ===== */
+        .app-container { display: none; padding: 10px 0; max-width: 1200px; margin: 0 auto; }
+        .app-container.visible { display: block; }
+
+        /* ===== Secciones colapsables ===== */
+        .filter-section, .config-section, .report-section {
+            background-color: white; border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px; margin-bottom: 20px;
+        }
+        .filter-toggle, .config-toggle, .report-toggle {
+            cursor: pointer; color: var(--primary-color);
+            font-weight: bold; margin-bottom: 15px;
+            display: flex; align-items: center;
+            user-select: none;
+        }
+        .filter-toggle:hover, .config-toggle:hover, .report-toggle:hover { text-decoration: underline; }
+        .filter-content, .config-content, .report-content { overflow: hidden; transition: max-height 0.3s ease; }
+        .filter-content.collapsed, .config-content.collapsed, .report-content.collapsed { max-height: 0; }
+
+        /* ===== Propuesta cards ===== */
+        .propuesta-card {
+            background-color: white; border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 20px; margin-bottom: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 4px solid var(--primary-color);
+            word-wrap: break-word; overflow-wrap: break-word;
+        }
+        .propuesta-card:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+        .propuesta-id { font-weight: bold; color: var(--primary-color); font-size: 1.1rem; }
+        .propuesta-id-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+        @media (hover: none) { .propuesta-card:hover { transform: none; box-shadow: 0 2px 4px rgba(0,0,0,0.05); } }
+
+        /* ===== Indicadores ===== */
+        .indicador-item { background-color: #f8f9fa; border-radius: 5px; padding: 10px; margin-bottom: 10px; word-wrap: break-word; overflow-wrap: break-word; }
+        .responsable { font-weight: bold; color: var(--accent-color); }
+        .indicadores-toggle { cursor: pointer; color: var(--primary-color); font-weight: bold; margin-bottom: 10px; display: inline-block; user-select: none; }
+        .indicadores-toggle:hover { text-decoration: underline; }
+        .indicadores-container { overflow: hidden; transition: max-height 0.3s ease; }
+        .indicadores-container.collapsed { max-height: 0; }
+
+        /* ===== Áreas y factores ===== */
+        .area-title { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-bottom: 20px; font-size: 1.5rem; word-wrap: break-word; }
+        .factor-title { color: var(--secondary-color); font-size: 1.1rem; margin-top: 20px; cursor: pointer; text-decoration: underline; padding: 10px 0; user-select: none; }
+        .factor-title:hover { color: var(--primary-color); }
+        .no-results { text-align: center; padding: 40px; color: var(--secondary-color); }
+
+        /* ===== Estado de propuestas ===== */
+        .estado-propuesta { margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; }
+        .estado-check { margin-right: 15px; }
+        .estado-label { margin-right: 10px; font-weight: normal; cursor: pointer; }
+        .estado-no-iniciada { color: #dc3545; }
+        .estado-en-proceso { color: #ffc107; }
+        .estado-conseguida { color: #198754; }
+        .factor-sin-propuestas { color: #6c757d; font-style: italic; margin-top: 10px; }
+
+        /* ===== Resaltado de filtros ===== */
+        .filtro-highlight { background-color: #fff3cd; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
+        .estado-highlight { background-color: #fff3cd; padding: 2px 8px; border-radius: 4px; box-shadow: 0 0 0 2px #ffc107; }
+
+        /* ===== Back to top ===== */
+        .back-to-top {
+            position: fixed; bottom: 20px; right: 20px;
+            background-color: var(--primary-color); color: white; border: none; border-radius: 50%;
+            width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; opacity: 0; transition: opacity 0.3s;
+        }
+        .back-to-top.visible { opacity: 1; }
+
+        /* ===== Config / Report options ===== */
+        .config-options { padding-top: 15px; }
+        .report-options { padding-top: 15px; }
+        .config-options .buttons-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+        /* ===== Modal factores ===== */
+        .factores-modal .modal-dialog { max-width: 90%; }
+        .factores-table { width: 100%; border-collapse: collapse; display: block; overflow-x: auto; }
+        .factores-table th, .factores-table td { border: 1px solid #ddd; padding: 8px; text-align: left; min-width: 100px; }
+        .factores-table th { background-color: #f2f2f2; font-weight: bold; }
+        .factores-table tr:nth-child(even) { background-color: #f9f9f9; }
+
+        /* ===== PWA ===== */
+        .install-prompt { position: fixed; bottom: 20px; left: 20px; background-color: var(--primary-color); color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1001; display: none; }
+        .install-prompt button { background: white; color: var(--primary-color); border: none; padding: 8px 16px; border-radius: 4px; margin-left: 10px; cursor: pointer; font-weight: bold; }
+        .install-prompt button:hover { background: #f8f9fa; }
+        .offline-indicator { position: fixed; top: 0; left: 0; right: 0; background-color: #ffc107; color: #000; text-align: center; padding: 8px; z-index: 1002; display: none; }
+
+        /* ============================== */
+        /* ===== RESPONSIVE: TABLETS ===== */
+        /* ============================== */
+        @media (max-width: 991.98px) {
+            .app-container { padding: 10px 15px; }
+            header h1 { font-size: 1.75rem; }
+            .area-title { font-size: 1.35rem; }
+            .propuesta-card { padding: 15px; }
+            .modal-lg .modal-dialog { max-width: 90%; }
+        }
+
+        /* ============================== */
+        /* ===== RESPONSIVE: MÓVILES ==== */
+        /* ============================== */
+        @media (max-width: 767.98px) {
+            /* Header */
+            header { padding: 0.75rem 0.5rem; text-align: center; }
+            header h1 { font-size: 1.5rem; }
+            #curso-subtitulo { font-size: 1rem !important; }
+            #auth-status {
+                position: static; transform: none;
+                flex-direction: row; flex-wrap: wrap;
+                justify-content: center; margin-top: 0.5rem;
+            }
+            .welcome-screen h1 { font-size: 2rem; }
+            .welcome-screen h2 { font-size: 1.5rem; }
+            .welcome-screen p { font-size: 1rem; }
+
+            /* Container */
+            .app-container { padding: 5px 10px; }
+            .container { padding-left: 10px; padding-right: 10px; }
+
+            /* Secciones */
+            .filter-section, .config-section, .report-section { padding: 12px; margin-bottom: 15px; border-radius: 8px; }
+            .config-toggle, .report-toggle, .filter-toggle { font-size: 0.95rem; margin-bottom: 10px; }
+
+            /* Propuestas */
+            .area-title { font-size: 1.2rem; padding-bottom: 8px; margin-bottom: 15px; }
+            .factor-title { font-size: 1rem; margin-top: 15px; }
+            .propuesta-card { padding: 12px; border-radius: 8px; border-left-width: 3px; }
+            .propuesta-id { font-size: 1rem; }
+            .propuesta-id-header { gap: 6px; }
+            .indicador-item { padding: 8px; }
+
+            /* Botones */
+            .btn { font-size: 0.85rem; padding: 6px 10px; }
+            .btn-group { flex-direction: column; }
+            .config-options .buttons-row { flex-direction: column; }
+            .config-options .buttons-row .btn { width: 100%; }
+
+            /* Estado */
+            .estado-propuesta { margin-top: 10px; padding-top: 10px; }
+            .estado-check { margin-right: 8px; }
+            .estado-label { margin-right: 5px; font-size: 0.85rem; }
+            .form-check-inline { display: flex; margin-right: 0; margin-bottom: 4px; }
+
+            /* Filtros */
+            .filter-section .row > div { margin-bottom: 10px; }
+            .filter-section .form-label { font-size: 0.9rem; }
+
+            /* Modal */
+            .modal-dialog { margin: 8px; }
+            .modal-lg .modal-dialog { max-width: 95%; }
+            .modal-header h5 { font-size: 1.1rem; }
+            .modal-body { padding: 1rem; }
+            .factores-modal .modal-dialog { max-width: 95%; margin: 5px auto; }
+            .factores-table th, .factores-table td { padding: 6px; font-size: 0.8rem; }
+
+            /* Back to top */
+            .back-to-top { width: 40px; height: 40px; bottom: 15px; right: 15px; }
+            .back-to-top svg { width: 20px; height: 20px; }
+
+            /* PWA */
+            .install-prompt { left: 10px; right: 10px; bottom: 10px; padding: 10px 15px; }
+            .install-prompt button { padding: 6px 12px; margin-left: 8px; font-size: 0.85rem; }
+            .offline-indicator { padding: 6px; font-size: 0.85rem; }
+        }
+
+        /* ============================== */
+        /* ===== RESPONSIVE: XS ====== ==== */
+        /* ============================== */
+        @media (max-width: 399.98px) {
+            header h1 { font-size: 1.25rem; }
+            #curso-subtitulo { font-size: 0.9rem !important; }
+            .welcome-screen h1 { font-size: 1.6rem; }
+            .welcome-screen h2 { font-size: 1.2rem; }
+            .area-title { font-size: 1.05rem; }
+            .propuesta-card { padding: 10px; }
+            .propuesta-id { font-size: 0.95rem; }
+            .btn { font-size: 0.8rem; padding: 5px 8px; }
+            .back-to-top { width: 36px; height: 36px; bottom: 10px; right: 10px; }
+            .back-to-top svg { width: 16px; height: 16px; }
+        }
+
+        /* ===== Touch enhancements ===== */
+        @media (hover: none) and (pointer: coarse) {
+            .btn, .config-toggle, .report-toggle, .filter-toggle,
+            .indicadores-toggle, .factor-title {
+                min-height: 44px; display: flex; align-items: center;
+            }
+        }
+
+        /* ===== Safe area insets (notch phones) ===== */
+        @supports (padding: env(safe-area-inset-top)) {
+            .offline-indicator { padding-top: calc(8px + env(safe-area-inset-top)); }
+            .back-to-top { bottom: calc(20px + env(safe-area-inset-bottom)); }
+            .install-prompt { bottom: calc(10px + env(safe-area-inset-bottom)); }
+        }
+
+        /* ===== Landscape mobile ===== */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .welcome-screen h1 { font-size: 1.5rem; }
+            .welcome-screen h2 { font-size: 1.1rem; }
+            .welcome-screen p { font-size: 0.9rem; }
+            #login-overlay .login-card { padding: 1.5rem; }
         }
     </style>
 </head>
@@ -209,14 +373,14 @@
         <header class="text-center mb-5">
             <h1 class="display-4 fw-bold text-primary">PLAN DE MEJORA</h1>
             <p class="lead fw-bold fs-4" id="curso-subtitulo">Curso 2025-2026</p>
-            <div id="auth-status" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;">
-                <div style="display: flex; align-items: center; gap: 8px;">
+            <div id="auth-status">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
                     <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
-                    <button id="btn-logout" class="btn btn-sm btn-outline-light d-none d-md-inline-block hidden">Cerrar sesión</button>
+                    <button id="btn-logout" class="btn btn-sm btn-outline-secondary hidden">Cerrar sesión</button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
                     <button id="btn-guardar-manual" class="btn btn-sm btn-outline-warning hidden" title="Guardar ahora">💾 Guardar</button>
-                    <span id="save-status" class="small text-muted hidden" style="min-width: 155px; display: none; text-align: left;"></span>
+                    <span id="save-status" class="small text-muted hidden"></span>
                 </div>
             </div>
         </header>
