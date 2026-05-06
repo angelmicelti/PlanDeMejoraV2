@@ -395,11 +395,25 @@
             </div>
             <div class="config-content collapsed" id="configContent">
                 <div class="config-options">
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="mostrarFactoresSinPropuestas">
-                        <label class="form-check-label" for="mostrarFactoresSinPropuestas">
-                            Mostrar factores clave sin propuestas
-                        </label>
+                    <div class="mb-3">
+                        <div class="form-check form-check-inline mb-2">
+                            <input class="form-check-input" type="checkbox" id="mostrarFactoresSinPropuestas">
+                            <label class="form-check-label" for="mostrarFactoresSinPropuestas">
+                                Mostrar factores clave sin propuestas
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline mb-2">
+                            <input class="form-check-input" type="checkbox" id="ocultarFactoresClaves">
+                            <label class="form-check-label" for="ocultarFactoresClaves">
+                                Ocultar factores claves
+                            </label>
+                        </div>
+                        <div class="form-check form-check-inline mb-2">
+                            <input class="form-check-input" type="checkbox" id="ocultarAreas">
+                            <label class="form-check-label" for="ocultarAreas">
+                                Ocultar Áreas
+                            </label>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -1277,6 +1291,8 @@
         let filtroResponsable = '';
         let filtroEstado = '';
         let mostrarFactoresSinPropuestas = false;
+        let ocultarFactoresClaves = false;
+        let ocultarAreas = false;
         let deferredPrompt;
 
         // ============================================================
@@ -2024,6 +2040,28 @@
                 actualizarVista();
             });
 
+            // Configuración del checkbox "Ocultar factores claves"
+            document.getElementById('ocultarFactoresClaves').addEventListener('change', function() {
+                ocultarFactoresClaves = this.checked;
+                // Si se desmarca, también desmarcar "Ocultar Áreas"
+                if (!this.checked) {
+                    ocultarAreas = false;
+                    document.getElementById('ocultarAreas').checked = false;
+                }
+                actualizarVista();
+            });
+
+            // Configuración del checkbox "Ocultar Áreas"
+            document.getElementById('ocultarAreas').addEventListener('change', function() {
+                ocultarAreas = this.checked;
+                if (this.checked) {
+                    // Al marcar "Ocultar Áreas", también marcar "Ocultar factores claves"
+                    ocultarFactoresClaves = true;
+                    document.getElementById('ocultarFactoresClaves').checked = true;
+                }
+                actualizarVista();
+            });
+
             // Configuración de exportación/importación
             document.getElementById('btnExportar').addEventListener('click', exportarDatos);
             document.getElementById('btnCopiarPropuestas').addEventListener('click', copiarPropuestasProximoCurso);
@@ -2719,11 +2757,14 @@
                 const areaElement = document.createElement('div');
                 areaElement.className = 'area-section mb-5';
 
-                const areaTitle = document.createElement('h2');
-                areaTitle.className = 'area-title';
-                areaTitle.textContent = `${area.id}. ${area.nombre}`;
-                if (filtroArea && area.id == filtroArea) areaTitle.classList.add('estado-highlight');
-                areaElement.appendChild(areaTitle);
+                // Mostrar título del área solo si no está activado "Ocultar Áreas"
+                if (!ocultarAreas) {
+                    const areaTitle = document.createElement('h2');
+                    areaTitle.className = 'area-title';
+                    areaTitle.textContent = `${area.id}. ${area.nombre}`;
+                    if (filtroArea && area.id == filtroArea) areaTitle.classList.add('estado-highlight');
+                    areaElement.appendChild(areaTitle);
+                }
 
                 let areaTieneContenido = false;
 
@@ -2735,15 +2776,18 @@
                     const factorElement = document.createElement('div');
                     factorElement.className = 'factor-section mb-4';
 
-                    const factorTitle = document.createElement('h3');
-                    factorTitle.className = 'factor-title';
-                    factorTitle.textContent = `${factor.id}. ${factor.nombre}`;
-                    if (filtroFactor && factor.id == filtroFactor) factorTitle.classList.add('estado-highlight');
-                    factorTitle.setAttribute('data-factor-id', factor.id);
-                    factorTitle.addEventListener('click', function() {
-                        mostrarElementosBueno(factor.id);
-                    });
-                    factorElement.appendChild(factorTitle);
+                    // Mostrar título del factor solo si no está activado "Ocultar factores claves"
+                    if (!ocultarFactoresClaves) {
+                        const factorTitle = document.createElement('h3');
+                        factorTitle.className = 'factor-title';
+                        factorTitle.textContent = `${factor.id}. ${factor.nombre}`;
+                        if (filtroFactor && factor.id == filtroFactor) factorTitle.classList.add('estado-highlight');
+                        factorTitle.setAttribute('data-factor-id', factor.id);
+                        factorTitle.addEventListener('click', function() {
+                            mostrarElementosBueno(factor.id);
+                        });
+                        factorElement.appendChild(factorTitle);
+                    }
 
                     let factorTienePropuestas = false;
 
