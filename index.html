@@ -730,6 +730,7 @@
         <header class="text-center mb-5">
             <h1 class="display-4 fw-bold text-primary">PLAN DE MEJORA</h1>
             <p class="lead fw-bold fs-4" id="curso-subtitulo">Curso 2025-2026</p>
+            <p class="small text-muted mb-0" id="version-text"></p>
             <div id="auth-status">
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
                     <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
@@ -4620,6 +4621,19 @@
                     });
             });
         }
+
+        // Obtener versión del Service Worker y mostrarla en la app
+        fetch('./sw.js')
+            .then(function(response) { return response.text(); })
+            .then(function(text) {
+                var match = text.match(/const\s+CACHE_NAME\s*=\s*['"]plan-mejora-(v[\w.-]+)['"]/);
+                if (match) {
+                    document.getElementById('version-text').textContent = 'v. ' + match[1];
+                }
+            })
+            .catch(function() {
+                document.getElementById('version-text').textContent = '';
+            });
     </script>
 </body>
 </html>
