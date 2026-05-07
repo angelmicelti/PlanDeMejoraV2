@@ -1,6 +1,6 @@
 // Service Worker para PWA - Plan de Mejora IES Virgen de Villadiego
 
-const CACHE_NAME = 'plan-mejora-v2.0';
+const CACHE_NAME = 'plan-mejora-2.0.1';
 
 // Recursos estáticos a cachear en la instalación
 const URLS_TO_CACHE = [
