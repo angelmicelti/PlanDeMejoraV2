@@ -1698,6 +1698,12 @@
         let appInitialized = false;
         let deferredPrompt;
 
+        // Variables para sincronización en tiempo real
+        let unsubscribeEstados = null;   // Listener para el documento de estados/propuestas
+        let unsubscribeCursos = null;    // Listener para el documento de cursos
+        let unsubscribeResponsables = null; // Listener para responsables
+        let guardadoReciente = false;    // Flag para evitar procesar nuestro propio guardado como cambio remoto
+
         // ============================================================
         // FUNCIONES DE AUTENTICACIÓN
         // ============================================================
@@ -2118,6 +2124,7 @@
             document.getElementById('login-btn').addEventListener('click', handleLogin);
             document.getElementById('btn-logout').addEventListener('click', function() {
                 if (confirm('¿Cerrar sesión?')) {
+                    desconectarListeners();
                     sessionStorage.removeItem('plan_mejora_user');
                     currentUser = null;
                     document.getElementById('user-info-badge').classList.add('hidden');
@@ -2255,8 +2262,11 @@
             llenarFiltroAreas();
             llenarFiltroFactores();
             llenarFiltroResponsables();
+            llenarSelectNuevaPropuesta();
             actualizarVista();
             actualizarVisibilidadBtnBorrar();
+            // Reconectar listener de estados al nuevo curso
+            escucharCambiosEstados();
         }
 
         async function añadirCurso() {
@@ -2475,6 +2485,9 @@
 
             // Mostrar todas las propuestas
             actualizarVista();
+
+            // Iniciar sincronización en tiempo real
+            iniciarSincronizacionTiempoReal();
 
             // Solo registrar event listeners la primera vez
             if (!appInitialized) {
@@ -3055,6 +3068,10 @@
                 });
                 console.log('Estados guardados correctamente en Firestore. Propuestas:', Object.keys(datos).filter(id => !datos[id].eliminada).length, 'Eliminadas:', propuestasEliminadasGlobal.length);
                 actualizarSaveStatus();
+
+                // Marcar que acabamos de guardar localmente para que onSnapshot no lo interprete como cambio remoto
+                guardadoReciente = true;
+                setTimeout(() => { guardadoReciente = false; }, 2000);
             } catch (error) {
                 console.error('Error guardando estados en Firestore:', error);
                 alert('Error al guardar en la base de datos: ' + error.message);
@@ -3154,6 +3171,190 @@
             } catch (error) {
                 console.error('Error cargando estados desde Firestore:', error);
             }
+        }
+
+        // ============================================================
+        // SINCRONIZACIÓN EN TIEMPO REAL CON FIRESTORE
+        // ============================================================
+
+        function desconectarListeners() {
+            if (unsubscribeEstados) { unsubscribeEstados(); unsubscribeEstados = null; }
+            if (unsubscribeCursos) { unsubscribeCursos(); unsubscribeCursos = null; }
+            if (unsubscribeResponsables) { unsubscribeResponsables(); unsubscribeResponsables = null; }
+        }
+
+        function escucharCambiosEstados() {
+            // Desconectar listener anterior si existe
+            if (unsubscribeEstados) { unsubscribeEstados(); unsubscribeEstados = null; }
+            if (!db) return;
+
+            const docId = 'estados_' + cursoActual.replace('-', '_');
+            unsubscribeEstados = db.collection('planMejora').doc(docId).onSnapshot(function(doc) {
+                // Si acabamos de guardar nosotros mismos, ignorar este snapshot
+                if (guardadoReciente) {
+                    console.log('Snapshot recibido pero es de guardado local, ignorando.');
+                    return;
+                }
+                console.log('Snapshot recibido (cambio remoto) para', docId);
+                recargarEstadosDesdeSnapshot(doc);
+            }, function(error) {
+                console.error('Error en listener de estados:', error);
+            });
+        }
+
+        async function recargarEstadosDesdeSnapshot(doc) {
+            if (!doc.exists) return;
+
+            try {
+                const datos = doc.data().datos || {};
+
+                // Rebuild eliminated list
+                propuestasEliminadasGlobal = Object.keys(datos).filter(id => datos[id].eliminada === true);
+
+                // Reset areasData base (preservando estructura)
+                resetAreasData(cursoActual);
+
+                // Zero pass: remove hardcoded proposals that are marked as eliminated
+                areasData.forEach(area => {
+                    area.factoresClave.forEach(factor => {
+                        factor.propuestas = factor.propuestas.filter(p => {
+                            return !(datos[p.id] && datos[p.id].eliminada === true);
+                        });
+                    });
+                });
+
+                // First pass: update existing proposals
+                areasData.forEach(area => {
+                    area.factoresClave.forEach(factor => {
+                        factor.propuestas.forEach(propuesta => {
+                            propuesta.indicadores.forEach(ind => {
+                                ind.responsable = normalizarResponsable(ind.responsable);
+                            });
+
+                            if (datos[propuesta.id]) {
+                                propuesta.estado = datos[propuesta.id].estado || propuesta.estado;
+                                if (datos[propuesta.id].descripcion) propuesta.descripcion = datos[propuesta.id].descripcion;
+                                if (datos[propuesta.id].indicadores && Array.isArray(datos[propuesta.id].indicadores)) {
+                                    propuesta.indicadores = datos[propuesta.id].indicadores;
+                                    propuesta.indicadores.forEach(ind => {
+                                        ind.responsable = normalizarResponsable(ind.responsable);
+                                    });
+                                }
+                                if (datos[propuesta.id].fechaInclusion) propuesta.fechaInclusion = datos[propuesta.id].fechaInclusion;
+                                if (datos[propuesta.id].fechaConsecucion !== undefined) propuesta.fechaConsecucion = datos[propuesta.id].fechaConsecucion;
+                            }
+                        });
+                    });
+                });
+
+                // Second pass: add new proposals not in hardcoded data
+                const existingIds = new Set();
+                areasData.forEach(area => {
+                    area.factoresClave.forEach(factor => {
+                        factor.propuestas.forEach(p => existingIds.add(p.id));
+                    });
+                });
+
+                Object.keys(datos).forEach(id => {
+                    if (datos[id].eliminada === true) return;
+                    if (!existingIds.has(id) && datos[id].areaId !== undefined && datos[id].factorId) {
+                        const area = areasData.find(a => a.id == datos[id].areaId);
+                        if (area) {
+                            const factor = area.factoresClave.find(f => f.id === datos[id].factorId);
+                            if (factor) {
+                                factor.propuestas.push({
+                                    id: id,
+                                    descripcion: datos[id].descripcion || '',
+                                    indicadores: (datos[id].indicadores || []).map(ind => ({
+                                        descripcion: ind.descripcion || '',
+                                        responsable: normalizarResponsable(ind.responsable)
+                                    })),
+                                    estado: datos[id].estado || 'no-iniciada',
+                                    fechaInclusion: datos[id].fechaInclusion || '2025-11-15',
+                                    fechaConsecucion: datos[id].fechaConsecucion || null
+                                });
+                            }
+                        }
+                    }
+                });
+
+                // Refresh UI
+                llenarFiltroAreas();
+                llenarFiltroFactores();
+                llenarFiltroResponsables();
+                llenarSelectNuevaPropuesta();
+                actualizarVista();
+                actualizarSaveStatus();
+                console.log('Vista actualizada por cambio remoto.');
+            } catch (error) {
+                console.error('Error recargando estados desde snapshot:', error);
+            }
+        }
+
+        function escucharCambiosCursos() {
+            if (unsubscribeCursos) { unsubscribeCursos(); unsubscribeCursos = null; }
+            if (!db) return;
+
+            unsubscribeCursos = db.collection('planMejora').doc('cursos').onSnapshot(function(doc) {
+                if (guardadoReciente) return;
+                if (!doc.exists) return;
+                const data = doc.data();
+                if (!data.lista) return;
+
+                const prevCurso = cursoActual;
+                cursosDisponibles = data.lista;
+                const nuevoSeleccionado = data.seleccionado || cursosDisponibles[0];
+
+                // Si el curso seleccionado cambió desde otra sesión
+                if (nuevoSeleccionado !== cursoActual) {
+                    console.log('Cambio remoto de curso detectado: de', cursoActual, 'a', nuevoSeleccionado);
+                    cursoActual = nuevoSeleccionado;
+                    propuestasEliminadasGlobal = [];
+                    resetAreasData(cursoActual);
+                    document.getElementById('curso-subtitulo').textContent = 'Curso ' + cursoActual;
+
+                    // Reconectar el listener de estados al nuevo curso
+                    cargarEstados().then(() => {
+                        llenarFiltroAreas();
+                        llenarFiltroFactores();
+                        llenarFiltroResponsables();
+                        llenarSelectNuevaPropuesta();
+                        actualizarVista();
+                        escucharCambiosEstados();
+                    });
+                }
+
+                actualizarSelectCursos();
+                actualizarVisibilidadBtnBorrar();
+            }, function(error) {
+                console.error('Error en listener de cursos:', error);
+            });
+        }
+
+        function escucharCambiosResponsables() {
+            if (unsubscribeResponsables) { unsubscribeResponsables(); unsubscribeResponsables = null; }
+            if (!db) return;
+
+            unsubscribeResponsables = db.collection('planMejora').doc('responsables').onSnapshot(function(doc) {
+                if (guardadoReciente) return;
+                if (doc.exists && doc.data().lista) {
+                    window.listaResponsablesGlobal = doc.data().lista;
+                } else {
+                    window.listaResponsablesGlobal = [];
+                }
+                // Actualizar selects de responsables
+                llenarFiltroResponsables();
+                console.log('Responsables actualizados por cambio remoto.');
+            }, function(error) {
+                console.error('Error en listener de responsables:', error);
+            });
+        }
+
+        function iniciarSincronizacionTiempoReal() {
+            escucharCambiosEstados();
+            escucharCambiosCursos();
+            escucharCambiosResponsables();
+            console.log('Sincronizacion en tiempo real activada.');
         }
 
         // ============================================================
