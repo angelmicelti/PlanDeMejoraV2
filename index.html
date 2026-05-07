@@ -1294,6 +1294,7 @@
         let mostrarFactoresSinPropuestas = false;
         let ocultarFactoresClaves = false;
         let ocultarAreas = false;
+        let appInitialized = false;
         let deferredPrompt;
 
         // ============================================================
@@ -1983,7 +1984,36 @@
             llenarFiltroFactores();
             llenarFiltroResponsables();
 
-            // Configurar eventos de filtros
+            // Llenar select de nueva propuesta
+            llenarSelectNuevaPropuesta();
+
+            // Gestión de cursos
+            actualizarSelectCursos();
+            actualizarVisibilidadBtnBorrar();
+
+            // Mostrar todas las propuestas
+            actualizarVista();
+
+            // Solo registrar event listeners la primera vez
+            if (!appInitialized) {
+                registrarEventListeners();
+                appInitialized = true;
+            }
+        }
+
+        function llenarSelectNuevaPropuesta() {
+            const npArea = document.getElementById('np-area');
+            // Limpiar opciones existentes (excepto placeholder)
+            npArea.innerHTML = '<option value="">-- Seleccionar área --</option>';
+            areasData.forEach(area => {
+                const opt = document.createElement('option');
+                opt.value = area.id;
+                opt.textContent = area.id + '. ' + area.nombre;
+                npArea.appendChild(opt);
+            });
+        }
+
+        function registrarEventListeners() {
             document.getElementById('filtroArea').addEventListener('change', function() {
                 filtroArea = this.value;
                 llenarFiltroFactores();
@@ -2025,7 +2055,6 @@
             });
 
             // Gestión de cursos
-            actualizarSelectCursos();
             document.getElementById('sel-curso').addEventListener('change', async function() {
                 const curso = this.value;
                 if (!curso) return;
@@ -2041,7 +2070,6 @@
                 await eliminarCurso(curso);
             });
             document.getElementById('btn-borrar-propuestas').addEventListener('click', borrarTodasPropuestasCurso);
-            actualizarVisibilidadBtnBorrar();
 
             // Configuración del menú de informes
             document.getElementById('reportToggle').addEventListener('click', function() {
@@ -2135,14 +2163,6 @@
             // ============================================================
             document.getElementById('nuevaPropuestaToggle').addEventListener('click', function() {
                 document.getElementById('nuevaPropuestaContent').classList.toggle('collapsed');
-            });
-
-            // Populate np-area select
-            areasData.forEach(area => {
-                const opt = document.createElement('option');
-                opt.value = area.id;
-                opt.textContent = area.id + '. ' + area.nombre;
-                document.getElementById('np-area').appendChild(opt);
             });
 
             // Nueva propuesta: area → factor cascade
@@ -2492,9 +2512,6 @@
                 await guardarEstados();
                 actualizarSaveStatus();
             }, 3 * 60 * 1000);
-
-            // Mostrar todas las propuestas inicialmente
-            actualizarVista();
         }
 
         function actualizarSaveStatus() {
