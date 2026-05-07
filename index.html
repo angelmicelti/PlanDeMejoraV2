@@ -4626,9 +4626,9 @@
         fetch('./sw.js')
             .then(function(response) { return response.text(); })
             .then(function(text) {
-                var match = text.match(/const\s+CACHE_NAME\s*=\s*['"]plan-mejora-(v[\w.-]+)['"]/);
+                var match = text.match(/const\s+CACHE_NAME\s*=\s*['"]plan-mejora-v([\w.-]+)['"]/);
                 if (match) {
-                    document.getElementById('version-text').textContent = 'v. ' + match[1];
+                    document.getElementById('version-text').textContent = 'V ' + match[1];
                 }
             })
             .catch(function() {
