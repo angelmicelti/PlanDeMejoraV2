@@ -1398,6 +1398,9 @@
                 document.getElementById('btn-borrar-propuestas').classList.remove('hidden');
                 document.getElementById('btnCopiarPropuestas').classList.remove('hidden');
                 document.getElementById('btn-guardar-manual').classList.remove('hidden');
+                document.getElementById('nuevaPropuestaSection').classList.remove('hidden');
+                document.getElementById('btnExportar').classList.remove('hidden');
+                document.getElementById('btnImportar').classList.remove('hidden');
                 cargarListaUsuarios();
             } else if (esLectura) {
                 // Usuario de solo lectura: ocultar todo lo de edición
@@ -1415,6 +1418,7 @@
                 document.getElementById('btn-eliminar-curso').classList.add('hidden');
                 document.getElementById('btn-borrar-propuestas').classList.add('hidden');
                 document.getElementById('btnCopiarPropuestas').classList.add('hidden');
+                document.getElementById('nuevaPropuestaSection').classList.remove('hidden');
             }
         }
 
