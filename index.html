@@ -444,6 +444,64 @@
             background-color: #e2e8f0;
         }
 
+        /* ===== Bloqueo de edición ===== */
+        .btn-locked {
+            opacity: 0.35;
+            cursor: not-allowed !important;
+            pointer-events: auto;
+            position: relative;
+        }
+        .btn-locked:hover {
+            opacity: 0.6;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        .btn-locked::after {
+            content: attr(data-lock-tooltip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .btn-locked:hover::after {
+            opacity: 1;
+        }
+        .propuesta-card-locked {
+            border-left-color: #94a3b8 !important;
+        }
+        .propuesta-card-locked .propuesta-id {
+            opacity: 0.7;
+        }
+        .btn-lock-individual {
+            opacity: 0.5;
+            font-size: 0.75rem;
+            padding: 2px 6px;
+        }
+        .btn-lock-individual:hover {
+            opacity: 0.8;
+        }
+        .acordeon-bloqueado {
+            opacity: 0.5;
+            cursor: not-allowed !important;
+            pointer-events: auto;
+        }
+        .acordeon-bloqueado:hover {
+            color: var(--secondary-color) !important;
+            gap: 10px;
+        }
+
         /* ===== Badges ===== */
         .badge { font-weight: 600; letter-spacing: 0.01em; }
 
@@ -771,6 +829,49 @@
                             <label class="form-check-label" for="ocultarFactoresClaves">
                                 Ocultar factores claves
                             </label>
+                        </div>
+                    </div>
+
+                    <!-- Bloqueo de edición (solo admin) -->
+                    <div class="mb-3" id="bloqueo-edicion-section">
+                        <hr>
+                        <h6 class="fw-bold mb-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-shield-lock me-1" viewBox="0 0 16 16"><path d="M5.338 1.59a61.5 61.5 0 0 0-.896-.348l-.005-.002a6.5 6.5 0 0 1-.435-.185.75.75 0 0 1-.04-1.324l.04-.022a7.5 7.5 0 0 1 .236-.113c.17-.078.412-.186.696-.308a25.6 25.6 0 0 1 1.885-.75c.608-.204 1.25-.37 1.85-.393.64-.024 1.2.116 1.59.405a.75.75 0 0 1 .153 1.062l-.004.007a18.4 18.4 0 0 1-.523.858l-.004.006a17.5 17.5 0 0 1-.798 1.057l-.002.002a.75.75 0 0 1-1.143-.972l.001-.002c.196-.232.394-.5.586-.778l.005-.008a15.7 15.7 0 0 0 .447-.73l.002-.003c.196-.326.34-.576.403-.734a.75.75 0 0 0-.046-.697c-.148-.11-.46-.225-.98-.205a7.3 7.3 0 0 0-1.436.31 23.8 23.8 0 0 0-1.757.7l-.005.002c-.24.103-.45.204-.622.3l-.003.001a5.8 5.8 0 0 0-.342.167.75.75 0 0 1-.872-1.216Z"/><path d="M8 0a3.5 3.5 0 0 0-3.5 3.5V6H3.25A.75.75 0 0 0 2.5 6.75v6.5a.75.75 0 0 0 .75.75h9.5a.75.75 0 0 0 .75-.75v-6.5a.75.75 0 0 0-.75-.75H11.5V3.5A3.5 3.5 0 0 0 8 0Zm2 6V3.5a2 2 0 1 0-4 0V6h4Zm-1 3a1 1 0 1 0-2 0v2a1 1 0 1 0 2 0V9Z"/></svg>
+                            Bloqueo de propuestas
+                        </h6>
+
+                        <!-- Edición de propuestas -->
+                        <label class="form-label small fw-bold mb-1" style="color: var(--primary-color);">Edición de propuestas</label>
+                        <div class="ms-3 mb-3">
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="radio" name="lockEdicion" id="lockEdicionNinguno" value="ninguno" checked>
+                                <label class="form-check-label" for="lockEdicionNinguno">Sin bloqueo</label>
+                            </div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="radio" name="lockEdicion" id="lockEdicionUsuarios" value="usuarios">
+                                <label class="form-check-label" for="lockEdicionUsuarios">Bloquear solo para usuarios (no admin)</label>
+                            </div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="radio" name="lockEdicion" id="lockEdicionTodos" value="todos">
+                                <label class="form-check-label" for="lockEdicionTodos">Bloquear para todos (incluido admin)</label>
+                            </div>
+                        </div>
+
+                        <!-- Adición de propuestas -->
+                        <label class="form-label small fw-bold mb-1" style="color: var(--primary-color);">Adición de propuestas</label>
+                        <div class="ms-3 mb-2">
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="radio" name="lockAdicion" id="lockAdicionNinguno" value="ninguno" checked>
+                                <label class="form-check-label" for="lockAdicionNinguno">Sin bloqueo</label>
+                            </div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="radio" name="lockAdicion" id="lockAdicionUsuarios" value="usuarios">
+                                <label class="form-check-label" for="lockAdicionUsuarios">Bloquear solo para usuarios (no admin)</label>
+                            </div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input" type="radio" name="lockAdicion" id="lockAdicionTodos" value="todos">
+                                <label class="form-check-label" for="lockAdicionTodos">Bloquear para todos (incluido admin)</label>
+                            </div>
                         </div>
                     </div>
                     
@@ -1705,6 +1806,25 @@
         let unsubscribeResponsables = null; // Listener para responsables
         let guardadoReciente = false;    // Flag para evitar procesar nuestro propio guardado como cambio remoto
 
+        // Variables para bloqueo de edición
+        // Alcances posibles: 'ninguno', 'usuarios', 'todos'
+        let bloqueoEdicionAlcance = 'ninguno';  // Alcance del bloqueo de edición
+        let bloqueoAdicionAlcance = 'ninguno';  // Alcance del bloqueo de adición
+        let propuestasBloqueadas = {};          // Bloqueo individual: { propuestaId: true/false }
+        let unsubscribeBloqueos = null;         // Listener para documento de bloqueos
+
+        // Funciones helper para saber si el usuario actual está afectado por el bloqueo
+        function edicionBloqueadaParaUsuario() {
+            if (bloqueoEdicionAlcance === 'todos') return true;
+            if (bloqueoEdicionAlcance === 'usuarios' && currentUser && currentUser.role !== 'admin') return true;
+            return false;
+        }
+        function adicionBloqueadaParaUsuario() {
+            if (bloqueoAdicionAlcance === 'todos') return true;
+            if (bloqueoAdicionAlcance === 'usuarios' && currentUser && currentUser.role !== 'admin') return true;
+            return false;
+        }
+
         // ============================================================
         // FUNCIONES DE AUTENTICACIÓN
         // ============================================================
@@ -1801,6 +1921,7 @@
 
             if (currentUser.role === 'admin') {
                 document.getElementById('user-management-section').classList.remove('hidden');
+                document.getElementById('bloqueo-edicion-section').classList.remove('hidden');
                 document.getElementById('btn-anadir-curso').classList.remove('hidden');
                 document.getElementById('btn-eliminar-curso').classList.remove('hidden');
                 document.getElementById('btn-borrar-propuestas').classList.remove('hidden');
@@ -1811,8 +1932,8 @@
                 document.getElementById('btnImportar').classList.remove('hidden');
                 cargarListaUsuarios();
             } else if (esLectura) {
-                // Usuario de solo lectura: ocultar todo lo de edición
                 document.getElementById('user-management-section').classList.add('hidden');
+                document.getElementById('bloqueo-edicion-section').classList.add('hidden');
                 document.getElementById('btn-anadir-curso').classList.add('hidden');
                 document.getElementById('btn-eliminar-curso').classList.add('hidden');
                 document.getElementById('btn-borrar-propuestas').classList.add('hidden');
@@ -1822,6 +1943,7 @@
                 document.getElementById('btnExportar').classList.add('hidden');
                 document.getElementById('btnImportar').classList.add('hidden');
             } else {
+                document.getElementById('bloqueo-edicion-section').classList.add('hidden');
                 document.getElementById('btn-anadir-curso').classList.add('hidden');
                 document.getElementById('btn-eliminar-curso').classList.add('hidden');
                 document.getElementById('btn-borrar-propuestas').classList.add('hidden');
@@ -2260,14 +2382,16 @@
             await guardarCursos();
             // Reload states for new course
             await cargarEstados();
+            await cargarBloqueos();
             llenarFiltroAreas();
             llenarFiltroFactores();
             llenarFiltroResponsables();
             llenarSelectNuevaPropuesta();
             actualizarVista();
             actualizarVisibilidadBtnBorrar();
-            // Reconectar listener de estados al nuevo curso
+            // Reconectar listeners al nuevo curso
             escucharCambiosEstados();
+            escucharCambiosBloqueos();
         }
 
         async function añadirCurso() {
@@ -2472,6 +2596,9 @@
             // Cargar estados guardados desde Firestore
             await cargarEstados();
 
+            // Cargar estado de bloqueos
+            await cargarBloqueos();
+
             // Llenar selectores de filtros
             llenarFiltroAreas();
             llenarFiltroFactores();
@@ -2510,6 +2637,34 @@
         }
 
         function registrarEventListeners() {
+            // Bloqueo de edición: radio buttons
+            document.querySelectorAll('input[name="lockEdicion"]').forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    bloqueoEdicionAlcance = this.value;
+                    guardarBloqueos();
+                    actualizarVista();
+                });
+            });
+
+            // Bloqueo de adición: radio buttons
+            document.querySelectorAll('input[name="lockAdicion"]').forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    bloqueoAdicionAlcance = this.value;
+                    guardarBloqueos();
+                    actualizarEstadoAcordeonBloqueado();
+                });
+            });
+
+            // Acordeón de nueva propuesta: si está bloqueado para el usuario, mostrar alerta en lugar de abrir
+            document.getElementById('nuevaPropuestaToggle').addEventListener('click', function(e) {
+                if (adicionBloqueadaParaUsuario()) {
+                    e.stopPropagation();
+                    alert('La adición de propuestas está bloqueada por el administrador.');
+                    return;
+                }
+                document.getElementById('nuevaPropuestaContent').classList.toggle('collapsed');
+            });
+
             document.getElementById('filtroArea').addEventListener('change', function() {
                 filtroArea = this.value;
                 llenarFiltroFactores();
@@ -2657,9 +2812,6 @@
             // ============================================================
             // EVENT HANDLERS: Nueva propuesta
             // ============================================================
-            document.getElementById('nuevaPropuestaToggle').addEventListener('click', function() {
-                document.getElementById('nuevaPropuestaContent').classList.toggle('collapsed');
-            });
 
             // Nueva propuesta: area → factor cascade
             document.getElementById('np-area').addEventListener('change', function() {
@@ -2881,6 +3033,12 @@
             }
 
             document.getElementById('btn-guardar-nueva-propuesta').addEventListener('click', function() {
+                // Seguridad: verificar que la adición no esté bloqueada para el usuario
+                if (adicionBloqueadaParaUsuario()) {
+                    alert('La adición de propuestas está bloqueada por el administrador.');
+                    return;
+                }
+
                 const areaId = parseInt(document.getElementById('np-area').value);
                 const factorId = document.getElementById('np-factor').value;
                 const nuevaId = document.getElementById('np-id').value;
@@ -3182,6 +3340,7 @@
             if (unsubscribeEstados) { unsubscribeEstados(); unsubscribeEstados = null; }
             if (unsubscribeCursos) { unsubscribeCursos(); unsubscribeCursos = null; }
             if (unsubscribeResponsables) { unsubscribeResponsables(); unsubscribeResponsables = null; }
+            if (unsubscribeBloqueos) { unsubscribeBloqueos(); unsubscribeBloqueos = null; }
         }
 
         function escucharCambiosEstados() {
@@ -3355,7 +3514,105 @@
             escucharCambiosEstados();
             escucharCambiosCursos();
             escucharCambiosResponsables();
+            escucharCambiosBloqueos();
             console.log('Sincronizacion en tiempo real activada.');
+        }
+
+        // ============================================================
+        // FUNCIONES DE BLOQUEO DE EDICIÓN
+        // ============================================================
+
+        async function guardarBloqueos() {
+            if (!db || !currentUser || currentUser.role !== 'admin') return;
+            try {
+                await db.collection('planMejora').doc('bloqueos_' + cursoActual.replace('-', '_')).set({
+                    edicionAlcance: bloqueoEdicionAlcance,
+                    adicionAlcance: bloqueoAdicionAlcance,
+                    individuales: propuestasBloqueadas,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('Bloqueos guardados en Firestore.', { edicionAlcance: bloqueoEdicionAlcance, adicionAlcance: bloqueoAdicionAlcance });
+            } catch (error) {
+                console.error('Error guardando bloqueos:', error);
+            }
+        }
+
+        async function cargarBloqueos() {
+            if (!db) return;
+            try {
+                const doc = await db.collection('planMejora').doc('bloqueos_' + cursoActual.replace('-', '_')).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    bloqueoEdicionAlcance = data.edicionAlcance || 'ninguno';
+                    bloqueoAdicionAlcance = data.adicionAlcance || 'ninguno';
+                    propuestasBloqueadas = data.individuales || {};
+                    // Compatibilidad con formato antiguo (booleanos)
+                    if (data.edicionGlobal === true) bloqueoEdicionAlcance = 'usuarios';
+                    if (data.adicion === true) bloqueoAdicionAlcance = 'usuarios';
+                } else {
+                    bloqueoEdicionAlcance = 'ninguno';
+                    bloqueoAdicionAlcance = 'ninguno';
+                    propuestasBloqueadas = {};
+                }
+                // Actualizar radio buttons
+                sincronizarRadiosBloqueo();
+                // Actualizar estado visual del acordeón de nueva propuesta
+                actualizarEstadoAcordeonBloqueado();
+                console.log('Bloqueos cargados:', { edicionAlcance: bloqueoEdicionAlcance, adicionAlcance: bloqueoAdicionAlcance, individuales: Object.keys(propuestasBloqueadas).length });
+            } catch (error) {
+                console.error('Error cargando bloqueos:', error);
+            }
+        }
+
+        function escucharCambiosBloqueos() {
+            if (unsubscribeBloqueos) { unsubscribeBloqueos(); unsubscribeBloqueos = null; }
+            if (!db) return;
+
+            unsubscribeBloqueos = db.collection('planMejora').doc('bloqueos_' + cursoActual.replace('-', '_')).onSnapshot(function(doc) {
+                if (guardadoReciente) return;
+                if (!doc.exists) return;
+                const data = doc.data();
+                bloqueoEdicionAlcance = data.edicionAlcance || 'ninguno';
+                bloqueoAdicionAlcance = data.adicionAlcance || 'ninguno';
+                propuestasBloqueadas = data.individuales || {};
+                // Compatibilidad con formato antiguo (booleanos)
+                if (data.edicionGlobal === true) bloqueoEdicionAlcance = 'usuarios';
+                if (data.adicion === true) bloqueoAdicionAlcance = 'usuarios';
+                // Actualizar UI
+                sincronizarRadiosBloqueo();
+                actualizarEstadoAcordeonBloqueado();
+                actualizarVista();
+                console.log('Bloqueos actualizados por cambio remoto.', { edicionAlcance: bloqueoEdicionAlcance, adicionAlcance: bloqueoAdicionAlcance });
+            }, function(error) {
+                console.error('Error en listener de bloqueos:', error);
+            });
+        }
+
+        // Sincroniza los radio buttons del admin con las variables de bloqueo
+        function sincronizarRadiosBloqueo() {
+            const radioEdicion = document.querySelector('input[name="lockEdicion"][value="' + bloqueoEdicionAlcance + '"]');
+            if (radioEdicion) radioEdicion.checked = true;
+            const radioAdicion = document.querySelector('input[name="lockAdicion"][value="' + bloqueoAdicionAlcance + '"]');
+            if (radioAdicion) radioAdicion.checked = true;
+        }
+
+        function toggleBloqueoIndividual(propuestaId) {
+            propuestasBloqueadas[propuestaId] = !propuestasBloqueadas[propuestaId];
+            if (!propuestasBloqueadas[propuestaId]) {
+                delete propuestasBloqueadas[propuestaId];
+            }
+            guardarBloqueos();
+            actualizarVista();
+        }
+
+        function actualizarEstadoAcordeonBloqueado() {
+            const toggle = document.getElementById('nuevaPropuestaToggle');
+            if (!toggle) return;
+            if (adicionBloqueadaParaUsuario()) {
+                toggle.classList.add('acordeon-bloqueado');
+            } else {
+                toggle.classList.remove('acordeon-bloqueado');
+            }
         }
 
         // ============================================================
@@ -3550,27 +3807,68 @@
                                 propuestaId.textContent = `Propuesta ${propuesta.id}`;
                                 propuestaIdHeader.appendChild(propuestaId);
                                 
+                                // Determinar si esta propuesta está bloqueada para el usuario actual
+                                const estaBloqueada = edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id];
+
                                 // Botones editar / eliminar (solo si no es usuario de solo lectura)
                                 const btnGroup = document.createElement('div');
-                                btnGroup.className = 'd-flex gap-1';
+                                btnGroup.className = 'd-flex gap-1 align-items-center';
 
                                 if (!currentUser || currentUser.role !== 'viewer') {
                                     const btnEditar = document.createElement('button');
                                     btnEditar.className = 'btn btn-sm btn-outline-primary';
+                                    if (estaBloqueada) {
+                                        btnEditar.classList.add('btn-locked');
+                                        btnEditar.setAttribute('data-lock-tooltip', 'Edicion bloqueada por el administrador');
+                                    }
                                     btnEditar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg> Editar';
                                     btnEditar.addEventListener('click', function() {
+                                        if (edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id]) {
+                                            alert('La edición de esta propuesta está bloqueada por el administrador.');
+                                            return;
+                                        }
                                         abrirModalEditarPropuesta(propuesta);
                                     });
                                     btnGroup.appendChild(btnEditar);
 
                                     const btnEliminar = document.createElement('button');
                                     btnEliminar.className = 'btn btn-sm btn-outline-danger';
-                                btnEliminar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg> Eliminar';
+                                    if (estaBloqueada) {
+                                        btnEliminar.classList.add('btn-locked');
+                                        btnEliminar.setAttribute('data-lock-tooltip', 'Edicion bloqueada por el administrador');
+                                    }
+                                    btnEliminar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg> Eliminar';
                                     btnEliminar.addEventListener('click', function() {
+                                        if (edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id]) {
+                                            alert('La edición de esta propuesta está bloqueada por el administrador.');
+                                            return;
+                                        }
                                         eliminarPropuesta(propuesta);
                                     });
                                     btnGroup.appendChild(btnEliminar);
+
+                                    // Botón de bloqueo individual (solo admin, no visible si el bloqueo afecta al propio admin)
+                                    if (currentUser.role === 'admin' && bloqueoEdicionAlcance !== 'todos') {
+                                        const btnLock = document.createElement('button');
+                                        btnLock.className = 'btn btn-sm btn-outline-secondary btn-lock-individual';
+                                        btnLock.title = propuestasBloqueadas[propuesta.id] ? 'Desbloquear propuesta' : 'Bloquear propuesta';
+                                        if (propuestasBloqueadas[propuesta.id]) {
+                                            btnLock.classList.add('active');
+                                            btnLock.style.background = '#94a3b8';
+                                            btnLock.style.borderColor = '#94a3b8';
+                                            btnLock.style.color = 'white';
+                                        }
+                                        btnLock.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>';
+                                        btnLock.addEventListener('click', function() {
+                                            toggleBloqueoIndividual(propuesta.id);
+                                        });
+                                        btnGroup.appendChild(btnLock);
+                                    }
                                 } // fin if !viewer
+
+                                if (estaBloqueada) {
+                                    propuestaElement.classList.add('propuesta-card-locked');
+                                }
 
                                 propuestaIdHeader.appendChild(btnGroup);
                                 propuestaElement.appendChild(propuestaIdHeader);
@@ -4373,6 +4671,13 @@
 
         function guardarPropuestaEditada() {
             const propuestaId = document.getElementById('edit-propuesta-id').value;
+
+            // Seguridad: verificar que la edición no esté bloqueada para el usuario
+            if (edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuestaId]) {
+                alert('La edición de esta propuesta está bloqueada por el administrador.');
+                return;
+            }
+
             const nuevaDesc = document.getElementById('edit-propuesta-desc').value.trim();
             const nuevaFecha = document.getElementById('edit-propuesta-fecha').value;
 
