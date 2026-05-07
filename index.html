@@ -477,6 +477,7 @@
                                             </div>
                                             <div class="col-sm-4">
                                                 <select id="new-user-role" class="form-select form-select-sm">
+                                                    <option value="viewer">Lectura</option>
                                                     <option value="user">Usuario</option>
                                                     <option value="admin">Admin</option>
                                                 </select>
@@ -1380,10 +1381,14 @@
             document.getElementById('login-overlay').classList.add('hidden');
             document.getElementById('appContainer').classList.add('visible');
             document.getElementById('welcomeScreen').classList.add('hidden');
-            const roleText = currentUser.role === 'admin' ? 'Admin' : 'Usuario';
+            let roleText = 'Usuario';
+            if (currentUser.role === 'admin') roleText = 'Admin';
+            else if (currentUser.role === 'viewer') roleText = 'Lectura';
             document.getElementById('user-info-badge').textContent = roleText + ': ' + currentUser.displayName;
             document.getElementById('user-info-badge').classList.remove('hidden');
             document.getElementById('btn-logout').classList.remove('hidden');
+
+            const esLectura = currentUser.role === 'viewer';
 
             if (currentUser.role === 'admin') {
                 document.getElementById('user-management-section').classList.remove('hidden');
@@ -1391,7 +1396,19 @@
                 document.getElementById('btn-eliminar-curso').classList.remove('hidden');
                 document.getElementById('btn-borrar-propuestas').classList.remove('hidden');
                 document.getElementById('btnCopiarPropuestas').classList.remove('hidden');
+                document.getElementById('btn-guardar-manual').classList.remove('hidden');
                 cargarListaUsuarios();
+            } else if (esLectura) {
+                // Usuario de solo lectura: ocultar todo lo de edición
+                document.getElementById('user-management-section').classList.add('hidden');
+                document.getElementById('btn-anadir-curso').classList.add('hidden');
+                document.getElementById('btn-eliminar-curso').classList.add('hidden');
+                document.getElementById('btn-borrar-propuestas').classList.add('hidden');
+                document.getElementById('btnCopiarPropuestas').classList.add('hidden');
+                document.getElementById('btn-guardar-manual').classList.add('hidden');
+                document.getElementById('nuevaPropuestaSection').classList.add('hidden');
+                document.getElementById('btnExportar').classList.add('hidden');
+                document.getElementById('btnImportar').classList.add('hidden');
             } else {
                 document.getElementById('btn-anadir-curso').classList.add('hidden');
                 document.getElementById('btn-eliminar-curso').classList.add('hidden');
@@ -1507,9 +1524,9 @@
                     const user = doc.data();
                     const li = document.createElement('li');
                     li.className = 'list-group-item d-flex justify-content-between align-items-center bg-light small';
-                    const roleBadge = user.role === 'admin'
-                        ? '<span class="badge bg-danger">Admin</span>'
-                        : '<span class="badge bg-info">Usuario</span>';
+                    let roleBadge = '<span class="badge bg-info">Usuario</span>';
+                    if (user.role === 'admin') roleBadge = '<span class="badge bg-danger">Admin</span>';
+                    else if (user.role === 'viewer') roleBadge = '<span class="badge bg-secondary">Lectura</span>';
                     const isCurrentUser = currentUser.username === user.username;
                     li.innerHTML = `
                         <div class="d-flex align-items-center gap-2">
@@ -1627,6 +1644,10 @@
                     document.getElementById('login-overlay').classList.remove('hidden');
                     document.getElementById('login-password').value = '';
                     document.getElementById('login-error').classList.add('hidden');
+                    // Resetear botón de login
+                    const loginBtn = document.getElementById('login-btn');
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Iniciar Sesión';
                 }
             });
             document.getElementById('btn-add-user').addEventListener('click', addUser);
@@ -2828,25 +2849,27 @@
                                 propuestaId.textContent = `Propuesta ${propuesta.id}`;
                                 propuestaIdHeader.appendChild(propuestaId);
                                 
-                                // Botones editar / eliminar
+                                // Botones editar / eliminar (solo si no es usuario de solo lectura)
                                 const btnGroup = document.createElement('div');
                                 btnGroup.className = 'd-flex gap-1';
 
-                                const btnEditar = document.createElement('button');
-                                btnEditar.className = 'btn btn-sm btn-outline-primary';
-                                btnEditar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg> Editar';
-                                btnEditar.addEventListener('click', function() {
-                                    abrirModalEditarPropuesta(propuesta);
-                                });
-                                btnGroup.appendChild(btnEditar);
+                                if (!currentUser || currentUser.role !== 'viewer') {
+                                    const btnEditar = document.createElement('button');
+                                    btnEditar.className = 'btn btn-sm btn-outline-primary';
+                                    btnEditar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg> Editar';
+                                    btnEditar.addEventListener('click', function() {
+                                        abrirModalEditarPropuesta(propuesta);
+                                    });
+                                    btnGroup.appendChild(btnEditar);
 
-                                const btnEliminar = document.createElement('button');
-                                btnEliminar.className = 'btn btn-sm btn-outline-danger';
+                                    const btnEliminar = document.createElement('button');
+                                    btnEliminar.className = 'btn btn-sm btn-outline-danger';
                                 btnEliminar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg> Eliminar';
-                                btnEliminar.addEventListener('click', function() {
-                                    eliminarPropuesta(propuesta);
-                                });
-                                btnGroup.appendChild(btnEliminar);
+                                    btnEliminar.addEventListener('click', function() {
+                                        eliminarPropuesta(propuesta);
+                                    });
+                                    btnGroup.appendChild(btnEliminar);
+                                } // fin if !viewer
 
                                 propuestaIdHeader.appendChild(btnGroup);
                                 propuestaElement.appendChild(propuestaIdHeader);
@@ -2944,6 +2967,10 @@
                                     input.id = `estado-${propuesta.id}-${estado.valor}`;
                                     input.value = estado.valor;
                                     input.checked = propuesta.estado === estado.valor;
+                                    // Solo lectura para usuario de tipo "Lectura"
+                                    if (currentUser && currentUser.role === 'viewer') {
+                                        input.disabled = true;
+                                    }
 
                                     input.addEventListener('change', function() {
                                         if (this.checked) {
