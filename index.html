@@ -200,10 +200,9 @@
             box-shadow: var(--card-shadow);
             padding: 20px; margin-bottom: 16px;
             transition: var(--transition-smooth);
-            border-left: 4px solid var(--primary-color);
-            word-wrap: break-word; overflow-wrap: break-word;
             border: 1px solid #e2e8f0;
             border-left: 4px solid var(--primary-color);
+            word-wrap: break-word; overflow-wrap: break-word;
         }
         .propuesta-card:hover {
             transform: translateY(-2px);
@@ -1282,7 +1281,13 @@
         let db = null;
         let currentUser = null;
 
-        // Datos completos de las áreas y propuestas
+        /* =====================================================================
+         * DATOS ESTRUCTURALES DE ÁREAS Y PROPUESTAS (areasData)
+         * =====================================================================
+         * Este array contiene la estructura completa de áreas, factores clave
+         * y propuestas del Plan de Mejora del IES Virgen de Villadiego.
+         * Es el dato maestro que se usa para renderizar toda la interfaz.
+         * ===================================================================== */
         const areasData = [
                 {
                     id: 1,
@@ -1799,6 +1804,7 @@
         let ocultarAreas = false;
         let appInitialized = false;
         let deferredPrompt;
+        let autoSaveInterval = null; // Referencia al intervalo de auto-guardado (para limpiarlo)
 
         // Variables para sincronización en tiempo real
         let unsubscribeEstados = null;   // Listener para el documento de estados/propuestas
@@ -1812,6 +1818,37 @@
         let bloqueoAdicionAlcance = 'ninguno';  // Alcance del bloqueo de adición
         let propuestasBloqueadas = {};          // Bloqueo individual: { propuestaId: true/false }
         let unsubscribeBloqueos = null;         // Listener para documento de bloqueos
+
+        /* ========== UTILIDAD: DEBOUNCE ========== */
+        function debounce(fn, delay) {
+            let timer = null;
+            return function(...args) {
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(() => {
+                    fn.apply(this, args);
+                    timer = null;
+                }, delay);
+            };
+        }
+
+        /* ========== UTILIDAD: CREAR BADGE DE RESPONSABLE (DRY) ========== */
+        // Función reutilizable para crear badges de responsable con botón de eliminar opcional.
+        // Se usa en: formulario nueva propuesta, modal edición, indicadores, etc.
+        function crearBadgeResponsable(nombre, onRemove) {
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-secondary me-1 mb-1';
+            badge.style.cssText = 'font-size:0.8rem; cursor:default;';
+            badge.textContent = nombre;
+            if (onRemove) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-close btn-close-white ms-1';
+                btn.style.fontSize = '0.55rem';
+                btn.addEventListener('click', () => onRemove());
+                badge.appendChild(btn);
+            }
+            return badge;
+        }
 
         // Funciones helper para saber si el usuario actual está afectado por el bloqueo
         function edicionBloqueadaParaUsuario() {
@@ -2203,7 +2240,8 @@
                 if (currentUser && currentUser.username === editedUsername) {
                     currentUser.displayName = displayName;
                     currentUser.role = role;
-                    usuarioActual = role === 'admin' ? 'Admin' : (role === 'viewer' ? 'Lectura' : 'Usuario');
+                    // Corregido: se elimina la variable no declarada usuarioActual
+                    // La función mostrarApp() ya se encarga de actualizar la interfaz
                     mostrarApp();
                 }
 
@@ -2636,8 +2674,15 @@
             });
         }
 
-        function registrarEventListeners() {
-            // Bloqueo de edición: radio buttons
+        /* =====================================================================
+         * REGISTRO DE EVENT LISTENERS
+         * =====================================================================
+         * La función principal registrarEventListeners() orquesta la llamada a
+         * las sub-funciones, cada una responsable de un dominio concreto.
+         * ===================================================================== */
+
+        // Sub-función: Bloqueo de edición/adición (radio buttons del admin)
+        function registrarEventListenersBloqueos() {
             document.querySelectorAll('input[name="lockEdicion"]').forEach(function(radio) {
                 radio.addEventListener('change', function() {
                     bloqueoEdicionAlcance = this.value;
@@ -2646,7 +2691,6 @@
                 });
             });
 
-            // Bloqueo de adición: radio buttons
             document.querySelectorAll('input[name="lockAdicion"]').forEach(function(radio) {
                 radio.addEventListener('change', function() {
                     bloqueoAdicionAlcance = this.value;
@@ -2655,7 +2699,6 @@
                 });
             });
 
-            // Acordeón de nueva propuesta: si está bloqueado para el usuario, mostrar alerta en lugar de abrir
             document.getElementById('nuevaPropuestaToggle').addEventListener('click', function(e) {
                 if (adicionBloqueadaParaUsuario()) {
                     e.stopPropagation();
@@ -2664,7 +2707,10 @@
                 }
                 document.getElementById('nuevaPropuestaContent').classList.toggle('collapsed');
             });
+        }
 
+        // Sub-función: Filtros (dropdowns de área, factor, responsable, estado)
+        function registrarEventListenersFiltros() {
             document.getElementById('filtroArea').addEventListener('change', function() {
                 filtroArea = this.value;
                 llenarFiltroFactores();
@@ -2699,7 +2745,15 @@
                 actualizarVista();
             });
 
-            // Configuración del menú desplegable
+            // Menú desplegable de filtros
+            document.getElementById('filterToggle').addEventListener('click', function() {
+                const filterContent = document.getElementById('filterContent');
+                filterContent.classList.toggle('collapsed');
+            });
+        }
+
+        // Sub-función: Configuración (toggles, checkboxes, cursos, export/import)
+        function registrarEventListenersConfig() {
             document.getElementById('configToggle').addEventListener('click', function() {
                 const configContent = document.getElementById('configContent');
                 configContent.classList.toggle('collapsed');
@@ -2722,28 +2776,14 @@
             });
             document.getElementById('btn-borrar-propuestas').addEventListener('click', borrarTodasPropuestasCurso);
 
-            // Configuración del menú de informes
-            document.getElementById('reportToggle').addEventListener('click', function() {
-                const reportContent = document.getElementById('reportContent');
-                reportContent.classList.toggle('collapsed');
-            });
-
-            // Configuración del menú de filtros
-            document.getElementById('filterToggle').addEventListener('click', function() {
-                const filterContent = document.getElementById('filterContent');
-                filterContent.classList.toggle('collapsed');
-            });
-
-            // Configuración del checkbox para mostrar factores sin propuestas
+            // Checkboxes de configuración
             document.getElementById('mostrarFactoresSinPropuestas').addEventListener('change', function() {
                 mostrarFactoresSinPropuestas = this.checked;
                 actualizarVista();
             });
 
-            // Configuración del checkbox "Ocultar factores claves"
             document.getElementById('ocultarFactoresClaves').addEventListener('change', function() {
                 ocultarFactoresClaves = this.checked;
-                // Si se desmarca, también desmarcar "Ocultar Áreas"
                 if (!this.checked) {
                     ocultarAreas = false;
                     document.getElementById('ocultarAreas').checked = false;
@@ -2751,32 +2791,37 @@
                 actualizarVista();
             });
 
-            // Configuración del checkbox "Ocultar Áreas"
             document.getElementById('ocultarAreas').addEventListener('change', function() {
                 ocultarAreas = this.checked;
                 if (this.checked) {
-                    // Al marcar "Ocultar Áreas", también marcar "Ocultar factores claves"
                     ocultarFactoresClaves = true;
                     document.getElementById('ocultarFactoresClaves').checked = true;
                 }
                 actualizarVista();
             });
 
-            // Configuración de exportación/importación
+            // Exportación/importación
             document.getElementById('btnExportar').addEventListener('click', exportarDatos);
             document.getElementById('btnCopiarPropuestas').addEventListener('click', copiarPropuestasProximoCurso);
             document.getElementById('btnImportar').addEventListener('click', function() {
                 document.getElementById('importFile').click();
             });
             document.getElementById('importFile').addEventListener('change', importarDatos);
+        }
 
-            // Configuración de generación de informes
+        // Sub-función: Informes PDF (botones de generación)
+        function registrarEventListenersInformes() {
+            document.getElementById('reportToggle').addEventListener('click', function() {
+                const reportContent = document.getElementById('reportContent');
+                reportContent.classList.toggle('collapsed');
+            });
+
             document.getElementById('btnGenerarPorEstado').addEventListener('click', generarPDFPorEstado);
             document.getElementById('btnGenerarPorResponsable').addEventListener('click', generarPDFPorResponsable);
+        }
 
-            // ============================================================
-            // EVENT HANDLERS: Editar propuesta
-            // ============================================================
+        // Sub-función: Edición de propuestas (modal de edición)
+        function registrarEventListenersEdicion() {
             document.getElementById('btn-guardar-propuesta').addEventListener('click', guardarPropuestaEditada);
             document.getElementById('btn-add-indicador').addEventListener('click', añadirIndicadorDesdeModal);
             document.getElementById('btn-edit-add-resp').addEventListener('click', function() {
@@ -2808,10 +2853,10 @@
                 modal.show();
             });
             document.getElementById('btn-guardar-responsable').addEventListener('click', guardarNuevoResponsable);
+        }
 
-            // ============================================================
-            // EVENT HANDLERS: Nueva propuesta
-            // ============================================================
+        // Sub-función: Nueva propuesta (formulario completo de alta)
+        function registrarEventListenersPropuestas() {
 
             // Nueva propuesta: area → factor cascade
             document.getElementById('np-area').addEventListener('change', function() {
@@ -3139,7 +3184,12 @@
                 actualizarVista();
                 guardarEstados();
             });
+        }
 
+        // Sub-función: PWA (guardado manual, auto-guardado)
+        // Nota: El auto-guardado se registra dentro de registrarEventListenersPWA()
+        // para agrupar la lógica de persistencia.
+        function registrarEventListenersPWA() {
             // Botón de guardar manual
             document.getElementById('btn-guardar-manual').classList.remove('hidden');
             document.getElementById('btn-guardar-manual').addEventListener('click', function() {
@@ -3162,10 +3212,23 @@
             });
 
             // Auto-guardado cada 3 minutos
-            setInterval(async function() {
+            // Limpiar intervalo anterior si existe para evitar fugas de memoria
+            if (autoSaveInterval) clearInterval(autoSaveInterval);
+            autoSaveInterval = setInterval(async function() {
                 await guardarEstados();
                 actualizarSaveStatus();
             }, 3 * 60 * 1000);
+        }
+
+        // Función principal: orquesta todas las sub-funciones de registro de listeners
+        function registrarEventListeners() {
+            registrarEventListenersBloqueos();
+            registrarEventListenersFiltros();
+            registrarEventListenersConfig();
+            registrarEventListenersInformes();
+            registrarEventListenersEdicion();
+            registrarEventListenersPropuestas();
+            registrarEventListenersPWA();
         }
 
         function actualizarSaveStatus() {
@@ -3237,86 +3300,95 @@
             }
         }
 
+        // Versión con debounce de guardarEstados() para evitar llamadas rápidas sucesivas
+        const guardarEstadosDebounced = debounce(guardarEstados, 1000);
+
+        /* =====================================================================
+         * FUNCIONES COMPARTIDAS PARA CARGA DE ESTADOS
+         * =====================================================================
+         * mergeEstadosDesdeDatos() contiene la lógica compartida entre
+         * cargarEstados() y recargarEstadosDesdeSnapshot(), evitando
+         * la duplicación ~90% del código.
+         * ===================================================================== */
+        function mergeEstadosDesdeDatos(datos) {
+            // Reconstruir lista de propuestas eliminadas
+            propuestasEliminadasGlobal = Object.keys(datos).filter(id => datos[id].eliminada === true);
+
+            // Paso cero: eliminar propuestas del código duro marcadas como eliminadas
+            areasData.forEach(area => {
+                area.factoresClave.forEach(factor => {
+                    factor.propuestas = factor.propuestas.filter(p => {
+                        return !(datos[p.id] && datos[p.id].eliminada === true);
+                    });
+                });
+            });
+
+            // Primer pase: actualizar propuestas existentes y migrar responsables a arrays
+            areasData.forEach(area => {
+                area.factoresClave.forEach(factor => {
+                    factor.propuestas.forEach(propuesta => {
+                        propuesta.indicadores.forEach(ind => {
+                            ind.responsable = normalizarResponsable(ind.responsable);
+                        });
+
+                        if (datos[propuesta.id]) {
+                            propuesta.estado = datos[propuesta.id].estado || propuesta.estado;
+                            if (datos[propuesta.id].descripcion) propuesta.descripcion = datos[propuesta.id].descripcion;
+                            if (datos[propuesta.id].indicadores && Array.isArray(datos[propuesta.id].indicadores)) {
+                                propuesta.indicadores = datos[propuesta.id].indicadores;
+                                propuesta.indicadores.forEach(ind => {
+                                    ind.responsable = normalizarResponsable(ind.responsable);
+                                });
+                            }
+                            if (datos[propuesta.id].fechaInclusion) propuesta.fechaInclusion = datos[propuesta.id].fechaInclusion;
+                            if (datos[propuesta.id].fechaConsecucion !== undefined) propuesta.fechaConsecucion = datos[propuesta.id].fechaConsecucion;
+                        }
+                    });
+                });
+            });
+
+            // Segundo pase: añadir propuestas nuevas que no están en los datos del código duro
+            const existingIds = new Set();
+            areasData.forEach(area => {
+                area.factoresClave.forEach(factor => {
+                    factor.propuestas.forEach(p => existingIds.add(p.id));
+                });
+            });
+
+            Object.keys(datos).forEach(id => {
+                if (datos[id].eliminada === true) return;
+                if (!existingIds.has(id) && datos[id].areaId !== undefined && datos[id].factorId) {
+                    const area = areasData.find(a => a.id == datos[id].areaId);
+                    if (area) {
+                        const factor = area.factoresClave.find(f => f.id === datos[id].factorId);
+                        if (factor) {
+                            factor.propuestas.push({
+                                id: id,
+                                descripcion: datos[id].descripcion || '',
+                                indicadores: (datos[id].indicadores || []).map(ind => ({
+                                    descripcion: ind.descripcion || '',
+                                    responsable: normalizarResponsable(ind.responsable)
+                                })),
+                                estado: datos[id].estado || 'no-iniciada',
+                                fechaInclusion: datos[id].fechaInclusion || '2025-11-15',
+                                fechaConsecucion: datos[id].fechaConsecucion || null
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
         async function cargarEstados() {
             if (!db) return;
             try {
                 const doc = await db.collection('planMejora').doc('estados_' + cursoActual.replace('-', '_')).get();
                 if (doc.exists) {
                     const datos = doc.data().datos || {};
-                    // Rebuild eliminated list from datos (proposals marked with eliminada flag)
-                    propuestasEliminadasGlobal = Object.keys(datos).filter(id => datos[id].eliminada === true);
-
-                    // Zero pass: remove hardcoded proposals that are marked as eliminated
-                    areasData.forEach(area => {
-                        area.factoresClave.forEach(factor => {
-                            factor.propuestas = factor.propuestas.filter(p => {
-                                return !(datos[p.id] && datos[p.id].eliminada === true);
-                            });
-                        });
-                    });
-
-                    // First pass: update existing proposals and migrate responsables to arrays
-                    areasData.forEach(area => {
-                        area.factoresClave.forEach(factor => {
-                            factor.propuestas.forEach(propuesta => {
-                                // Migrate responsable to array
-                                propuesta.indicadores.forEach(ind => {
-                                    ind.responsable = normalizarResponsable(ind.responsable);
-                                });
-
-                                if (datos[propuesta.id]) {
-                                    propuesta.estado = datos[propuesta.id].estado || propuesta.estado;
-                                    if (datos[propuesta.id].descripcion) propuesta.descripcion = datos[propuesta.id].descripcion;
-                                    if (datos[propuesta.id].indicadores && Array.isArray(datos[propuesta.id].indicadores)) {
-                                        propuesta.indicadores = datos[propuesta.id].indicadores;
-                                        // Migrate loaded indicadores too
-                                        propuesta.indicadores.forEach(ind => {
-                                            ind.responsable = normalizarResponsable(ind.responsable);
-                                        });
-                                    }
-                                    if (datos[propuesta.id].fechaInclusion) propuesta.fechaInclusion = datos[propuesta.id].fechaInclusion;
-                                    if (datos[propuesta.id].fechaConsecucion !== undefined) propuesta.fechaConsecucion = datos[propuesta.id].fechaConsecucion;
-                                }
-                            });
-                        });
-                    });
-
-                    // Second pass: add new proposals not in hardcoded data
-                    const existingIds = new Set();
-                    areasData.forEach(area => {
-                        area.factoresClave.forEach(factor => {
-                            factor.propuestas.forEach(p => existingIds.add(p.id));
-                        });
-                    });
-
-                    Object.keys(datos).forEach(id => {
-                        // Skip eliminated proposals and entries without full data
-                        if (datos[id].eliminada === true) return;
-                        if (!existingIds.has(id) && datos[id].areaId !== undefined && datos[id].factorId) {
-                            const area = areasData.find(a => a.id == datos[id].areaId);
-                            if (area) {
-                                const factor = area.factoresClave.find(f => f.id === datos[id].factorId);
-                                if (factor) {
-                                    const newProp = {
-                                        id: id,
-                                        descripcion: datos[id].descripcion || '',
-                                        indicadores: (datos[id].indicadores || []).map(ind => ({
-                                            descripcion: ind.descripcion || '',
-                                            responsable: normalizarResponsable(ind.responsable)
-                                        })),
-                                        estado: datos[id].estado || 'no-iniciada',
-                                        fechaInclusion: datos[id].fechaInclusion || '2025-11-15',
-                                        fechaConsecucion: datos[id].fechaConsecucion || null
-                                    };
-                                    console.log('Restaurando propuesta nueva desde Firestore:', id, 'indicadores:', JSON.stringify(newProp.indicadores));
-                                    factor.propuestas.push(newProp);
-                                }
-                            }
-                        }
-                    });
+                    mergeEstadosDesdeDatos(datos);
                 }
 
-                // Load responsables list
+                // Cargar lista de responsables
                 try {
                     const respDoc = await db.collection('planMejora').doc('responsables').get();
                     if (respDoc.exists && respDoc.data().lista) {
@@ -3341,6 +3413,8 @@
             if (unsubscribeCursos) { unsubscribeCursos(); unsubscribeCursos = null; }
             if (unsubscribeResponsables) { unsubscribeResponsables(); unsubscribeResponsables = null; }
             if (unsubscribeBloqueos) { unsubscribeBloqueos(); unsubscribeBloqueos = null; }
+            // Limpiar intervalo de auto-guardado
+            if (autoSaveInterval) { clearInterval(autoSaveInterval); autoSaveInterval = null; }
         }
 
         function escucharCambiosEstados() {
@@ -3368,77 +3442,13 @@
             try {
                 const datos = doc.data().datos || {};
 
-                // Rebuild eliminated list
-                propuestasEliminadasGlobal = Object.keys(datos).filter(id => datos[id].eliminada === true);
-
-                // Reset areasData base (preservando estructura)
+                // Resetear areasData base (preservando estructura)
                 resetAreasData(cursoActual);
 
-                // Zero pass: remove hardcoded proposals that are marked as eliminated
-                areasData.forEach(area => {
-                    area.factoresClave.forEach(factor => {
-                        factor.propuestas = factor.propuestas.filter(p => {
-                            return !(datos[p.id] && datos[p.id].eliminada === true);
-                        });
-                    });
-                });
+                // Aplicar la lógica compartida de fusión de estados
+                mergeEstadosDesdeDatos(datos);
 
-                // First pass: update existing proposals
-                areasData.forEach(area => {
-                    area.factoresClave.forEach(factor => {
-                        factor.propuestas.forEach(propuesta => {
-                            propuesta.indicadores.forEach(ind => {
-                                ind.responsable = normalizarResponsable(ind.responsable);
-                            });
-
-                            if (datos[propuesta.id]) {
-                                propuesta.estado = datos[propuesta.id].estado || propuesta.estado;
-                                if (datos[propuesta.id].descripcion) propuesta.descripcion = datos[propuesta.id].descripcion;
-                                if (datos[propuesta.id].indicadores && Array.isArray(datos[propuesta.id].indicadores)) {
-                                    propuesta.indicadores = datos[propuesta.id].indicadores;
-                                    propuesta.indicadores.forEach(ind => {
-                                        ind.responsable = normalizarResponsable(ind.responsable);
-                                    });
-                                }
-                                if (datos[propuesta.id].fechaInclusion) propuesta.fechaInclusion = datos[propuesta.id].fechaInclusion;
-                                if (datos[propuesta.id].fechaConsecucion !== undefined) propuesta.fechaConsecucion = datos[propuesta.id].fechaConsecucion;
-                            }
-                        });
-                    });
-                });
-
-                // Second pass: add new proposals not in hardcoded data
-                const existingIds = new Set();
-                areasData.forEach(area => {
-                    area.factoresClave.forEach(factor => {
-                        factor.propuestas.forEach(p => existingIds.add(p.id));
-                    });
-                });
-
-                Object.keys(datos).forEach(id => {
-                    if (datos[id].eliminada === true) return;
-                    if (!existingIds.has(id) && datos[id].areaId !== undefined && datos[id].factorId) {
-                        const area = areasData.find(a => a.id == datos[id].areaId);
-                        if (area) {
-                            const factor = area.factoresClave.find(f => f.id === datos[id].factorId);
-                            if (factor) {
-                                factor.propuestas.push({
-                                    id: id,
-                                    descripcion: datos[id].descripcion || '',
-                                    indicadores: (datos[id].indicadores || []).map(ind => ({
-                                        descripcion: ind.descripcion || '',
-                                        responsable: normalizarResponsable(ind.responsable)
-                                    })),
-                                    estado: datos[id].estado || 'no-iniciada',
-                                    fechaInclusion: datos[id].fechaInclusion || '2025-11-15',
-                                    fechaConsecucion: datos[id].fechaConsecucion || null
-                                });
-                            }
-                        }
-                    }
-                });
-
-                // Refresh UI
+                // Actualizar interfaz
                 llenarFiltroAreas();
                 llenarFiltroFactores();
                 llenarFiltroResponsables();
@@ -3663,20 +3673,8 @@
             selectResponsable.innerHTML = '<option value="">Todos los responsables</option>';
             reportResponsable.innerHTML = '<option value="">Todos los responsables</option>';
 
-            const responsables = new Set();
-
-            areasData.forEach(area => {
-                area.factoresClave.forEach(factor => {
-                    factor.propuestas.forEach(propuesta => {
-                        propuesta.indicadores.forEach(indicador => {
-                            const resps = normalizarResponsable(indicador.responsable);
-                            resps.forEach(r => responsables.add(r));
-                        });
-                    });
-                });
-            });
-
-            const responsablesOrdenados = Array.from(responsables).sort();
+            // Reutilizar obtenerTodosResponsables() en lugar de duplicar la lógica
+            const responsablesOrdenados = obtenerTodosResponsables();
             responsablesOrdenados.forEach(responsable => {
                 const option1 = document.createElement('option');
                 option1.value = responsable;
@@ -3720,6 +3718,329 @@
             return !!(filtroArea || filtroFactor || filtroResponsable || filtroEstado);
         }
 
+        /* =====================================================================
+         * RENDERIZADO DE LA VISTA (actualizarVista y funciones auxiliares)
+         * =====================================================================
+         * Se descompone la función monolítica en sub-funciones más pequeñas
+         * para mejorar la legibilidad y mantenibilidad.
+         * ===================================================================== */
+
+        // Renderizar indicadores de evaluación de una propuesta
+        function renderIndicadores(indicadores, propuesta) {
+            const indicadoresContainer = document.createElement('div');
+            indicadoresContainer.className = 'indicadores-container collapsed';
+
+            indicadores.forEach(indicador => {
+                // Si hay filtro de responsable, mostrar solo indicadores de ese responsable
+                if (filtroResponsable) {
+                    const respsFiltro = normalizarResponsable(indicador.responsable);
+                    if (!respsFiltro.includes(filtroResponsable)) return;
+                }
+
+                const indicadorElement = document.createElement('div');
+                indicadorElement.className = 'indicador-item';
+
+                const indicadorDesc = document.createElement('p');
+                indicadorDesc.textContent = indicador.descripcion;
+                indicadorElement.appendChild(indicadorDesc);
+
+                const resps = normalizarResponsable(indicador.responsable);
+                if (resps.length > 0) {
+                    const indicadorResponsable = document.createElement('p');
+                    indicadorResponsable.className = 'responsable';
+                    if (filtroResponsable) {
+                        indicadorResponsable.innerHTML = 'Responsable: ' + resps.map(r =>
+                            r === filtroResponsable
+                                ? '<mark class="filtro-highlight">' + r + '</mark>'
+                                : r
+                        ).join(', ');
+                    } else {
+                        indicadorResponsable.textContent = 'Responsable: ' + resps.join(', ');
+                    }
+                    indicadorElement.appendChild(indicadorResponsable);
+                }
+
+                indicadoresContainer.appendChild(indicadorElement);
+            });
+
+            return indicadoresContainer;
+        }
+
+        // Renderizar los radio buttons de estado de una propuesta
+        function renderEstadoSelector(propuesta) {
+            const estadoElement = document.createElement('div');
+            estadoElement.className = 'estado-propuesta';
+
+            const estadoLabel = document.createElement('h6');
+            estadoLabel.textContent = 'Estado:';
+            estadoElement.appendChild(estadoLabel);
+
+            const estadoContainer = document.createElement('div');
+
+            const estados = [
+                { valor: 'no-iniciada', texto: 'No iniciada', clase: 'estado-no-iniciada' },
+                { valor: 'en-proceso', texto: 'En proceso', clase: 'estado-en-proceso' },
+                { valor: 'conseguida', texto: 'Conseguida', clase: 'estado-conseguida' }
+            ];
+
+            estados.forEach(estado => {
+                const estadoDiv = document.createElement('div');
+                estadoDiv.className = 'form-check form-check-inline';
+
+                const input = document.createElement('input');
+                input.className = 'form-check-input estado-check';
+                input.type = 'radio';
+                input.name = `estado-${propuesta.id}`;
+                input.id = `estado-${propuesta.id}-${estado.valor}`;
+                input.value = estado.valor;
+                input.checked = propuesta.estado === estado.valor;
+                if (currentUser && currentUser.role === 'viewer') {
+                    input.disabled = true;
+                }
+
+                input.addEventListener('change', function() {
+                    if (this.checked) {
+                        propuesta.estado = this.value;
+                        if (this.value === 'conseguida') {
+                            if (!propuesta.fechaConsecucion) {
+                                propuesta.fechaConsecucion = new Date().toISOString().split('T')[0];
+                            }
+                        } else {
+                            propuesta.fechaConsecucion = null;
+                        }
+                        guardarEstadosDebounced();
+                        actualizarVista();
+                    }
+                });
+
+                const label = document.createElement('label');
+                label.className = `form-check-label estado-label ${estado.clase}`;
+                label.htmlFor = `estado-${propuesta.id}-${estado.valor}`;
+                label.textContent = estado.texto;
+                if (filtroEstado && estado.valor === filtroEstado) label.classList.add('estado-highlight');
+
+                estadoDiv.appendChild(input);
+                estadoDiv.appendChild(label);
+                estadoContainer.appendChild(estadoDiv);
+            });
+
+            estadoElement.appendChild(estadoContainer);
+
+            // Fecha de consecución (si existe)
+            if (propuesta.fechaConsecucion) {
+                const fechaConDiv = document.createElement('div');
+                fechaConDiv.className = 'mt-2 small text-success fw-bold';
+                const fechaConDate = new Date(propuesta.fechaConsecucion + 'T00:00:00');
+                fechaConDiv.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-check-circle-fill me-1" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg> Fecha de consecución: ' + fechaConDate.toLocaleDateString('es-ES');
+                estadoElement.appendChild(fechaConDiv);
+            }
+
+            return estadoElement;
+        }
+
+        // Renderizar una tarjeta de propuesta completa
+        function renderPropuestaCard(propuesta, factor) {
+            const propuestaElement = document.createElement('div');
+            propuestaElement.className = 'propuesta-card';
+
+            // Determinar si esta propuesta está bloqueada para el usuario actual
+            const estaBloqueada = edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id];
+
+            if (estaBloqueada) {
+                propuestaElement.classList.add('propuesta-card-locked');
+            }
+
+            // ID de la propuesta + botón editar/eliminar
+            const propuestaIdHeader = document.createElement('div');
+            propuestaIdHeader.className = 'd-flex justify-content-between align-items-start mb-0';
+            
+            const propuestaId = document.createElement('div');
+            propuestaId.className = 'propuesta-id';
+            propuestaId.textContent = `Propuesta ${propuesta.id}`;
+            propuestaIdHeader.appendChild(propuestaId);
+
+            // Botones editar / eliminar (solo si no es usuario de solo lectura)
+            const btnGroup = document.createElement('div');
+            btnGroup.className = 'd-flex gap-1 align-items-center';
+
+            if (!currentUser || currentUser.role !== 'viewer') {
+                const btnEditar = document.createElement('button');
+                btnEditar.className = 'btn btn-sm btn-outline-primary';
+                if (estaBloqueada) {
+                    btnEditar.classList.add('btn-locked');
+                    btnEditar.setAttribute('data-lock-tooltip', 'Edicion bloqueada por el administrador');
+                }
+                btnEditar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg> Editar';
+                btnEditar.addEventListener('click', function() {
+                    if (edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id]) {
+                        alert('La edición de esta propuesta está bloqueada por el administrador.');
+                        return;
+                    }
+                    abrirModalEditarPropuesta(propuesta);
+                });
+                btnGroup.appendChild(btnEditar);
+
+                const btnEliminar = document.createElement('button');
+                btnEliminar.className = 'btn btn-sm btn-outline-danger';
+                if (estaBloqueada) {
+                    btnEliminar.classList.add('btn-locked');
+                    btnEliminar.setAttribute('data-lock-tooltip', 'Edicion bloqueada por el administrador');
+                }
+                btnEliminar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg> Eliminar';
+                btnEliminar.addEventListener('click', function() {
+                    if (edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id]) {
+                        alert('La edición de esta propuesta está bloqueada por el administrador.');
+                        return;
+                    }
+                    eliminarPropuesta(propuesta);
+                });
+                btnGroup.appendChild(btnEliminar);
+
+                // Botón de bloqueo individual (solo admin, no visible si el bloqueo afecta al propio admin)
+                if (currentUser.role === 'admin' && bloqueoEdicionAlcance !== 'todos') {
+                    const btnLock = document.createElement('button');
+                    btnLock.className = 'btn btn-sm btn-outline-secondary btn-lock-individual';
+                    btnLock.title = propuestasBloqueadas[propuesta.id] ? 'Desbloquear propuesta' : 'Bloquear propuesta';
+                    if (propuestasBloqueadas[propuesta.id]) {
+                        btnLock.classList.add('active');
+                        btnLock.style.background = '#94a3b8';
+                        btnLock.style.borderColor = '#94a3b8';
+                        btnLock.style.color = 'white';
+                    }
+                    btnLock.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>';
+                    btnLock.addEventListener('click', function() {
+                        toggleBloqueoIndividual(propuesta.id);
+                    });
+                    btnGroup.appendChild(btnLock);
+                }
+            }
+
+            propuestaIdHeader.appendChild(btnGroup);
+            propuestaElement.appendChild(propuestaIdHeader);
+
+            // Fecha de inclusión
+            if (propuesta.fechaInclusion) {
+                const fechaInc = document.createElement('div');
+                fechaInc.className = 'small text-muted mb-2';
+                const fechaIncDate = new Date(propuesta.fechaInclusion + 'T00:00:00');
+                fechaInc.textContent = 'Fecha de inclusión: ' + fechaIncDate.toLocaleDateString('es-ES');
+                propuestaElement.appendChild(fechaInc);
+            }
+
+            // Descripción de la propuesta
+            const propuestaDesc = document.createElement('p');
+            propuestaDesc.textContent = propuesta.descripcion;
+            propuestaElement.appendChild(propuestaDesc);
+
+            // Indicadores (toggle + contenedor)
+            const indicadoresToggle = document.createElement('div');
+            indicadoresToggle.className = 'indicadores-toggle';
+            indicadoresToggle.textContent = 'Ver indicadores de evaluación';
+            indicadoresToggle.addEventListener('click', function() {
+                const indicadoresContainer = this.nextElementSibling;
+                indicadoresContainer.classList.toggle('collapsed');
+                this.textContent = indicadoresContainer.classList.contains('collapsed')
+                    ? 'Ver indicadores de evaluación'
+                    : 'Ocultar indicadores de evaluación';
+            });
+            propuestaElement.appendChild(indicadoresToggle);
+
+            propuestaElement.appendChild(renderIndicadores(propuesta.indicadores, propuesta));
+
+            // Estado de la propuesta
+            propuestaElement.appendChild(renderEstadoSelector(propuesta));
+
+            return propuestaElement;
+        }
+
+        // Renderizar un factor con sus propuestas
+        function renderFactor(factor) {
+            const factorElement = document.createElement('div');
+            factorElement.className = 'factor-section mb-4';
+
+            // Mostrar título del factor solo si no está activado "Ocultar factores claves"
+            if (!ocultarFactoresClaves) {
+                const factorTitle = document.createElement('h3');
+                factorTitle.className = 'factor-title';
+                factorTitle.textContent = `${factor.id}. ${factor.nombre}`;
+                if (filtroFactor && factor.id == filtroFactor) factorTitle.classList.add('estado-highlight');
+                factorTitle.setAttribute('data-factor-id', factor.id);
+                factorTitle.addEventListener('click', function() {
+                    mostrarElementosBueno(factor.id);
+                });
+                factorElement.appendChild(factorTitle);
+            }
+
+            let factorTienePropuestas = false;
+
+            if (factor.propuestas.length > 0) {
+                factor.propuestas.forEach(propuesta => {
+                    let coincideResponsable = !filtroResponsable;
+                    let coincideEstado = !filtroEstado;
+
+                    if (filtroResponsable) {
+                        coincideResponsable = propuesta.indicadores.some(
+                            indicador => {
+                                const resps = normalizarResponsable(indicador.responsable);
+                                return resps.includes(filtroResponsable);
+                            }
+                        );
+                    }
+
+                    if (filtroEstado) {
+                        coincideEstado = propuesta.estado === filtroEstado;
+                    }
+
+                    if (coincideResponsable && coincideEstado) {
+                        factorTienePropuestas = true;
+                        factorElement.appendChild(renderPropuestaCard(propuesta, factor));
+                    }
+                });
+            }
+
+            // Si el factor no tiene propuestas pero se debe mostrar
+            if (!factorTienePropuestas && mostrarFactoresSinPropuestas && factor.propuestas.length === 0) {
+                const sinPropuestas = document.createElement('p');
+                sinPropuestas.className = 'factor-sin-propuestas';
+                sinPropuestas.textContent = 'Este factor clave no tiene propuestas de mejora asociadas.';
+                factorElement.appendChild(sinPropuestas);
+                factorTienePropuestas = true;
+            }
+
+            return { element: factorElement, tieneContenido: factorTienePropuestas };
+        }
+
+        // Renderizar un área con sus factores
+        function renderArea(area) {
+            if (filtroArea && area.id != filtroArea) return { element: null, tieneContenido: false };
+
+            const areaElement = document.createElement('div');
+            areaElement.className = 'area-section mb-5';
+
+            if (!ocultarAreas) {
+                const areaTitle = document.createElement('h2');
+                areaTitle.className = 'area-title';
+                areaTitle.textContent = `${area.id}. ${area.nombre}`;
+                if (filtroArea && area.id == filtroArea) areaTitle.classList.add('estado-highlight');
+                areaElement.appendChild(areaTitle);
+            }
+
+            let areaTieneContenido = false;
+
+            area.factoresClave.forEach(factor => {
+                if (filtroFactor && factor.id != filtroFactor) return;
+
+                const { element, tieneContenido } = renderFactor(factor);
+                if (tieneContenido || (mostrarFactoresSinPropuestas && factor.propuestas.length === 0)) {
+                    areaElement.appendChild(element);
+                    if (tieneContenido) areaTieneContenido = true;
+                }
+            });
+
+            return { element: areaElement, tieneContenido: areaTieneContenido };
+        }
+
+        // Función principal de renderizado: orquesta las sub-funciones
         function actualizarVista() {
             ordenarPropuestas();
 
@@ -3728,313 +4049,11 @@
 
             let tieneResultados = false;
 
-            // Mostrar todas las áreas y factores
             areasData.forEach(area => {
-                // Si hay filtro de área y no coincide, saltar
-                if (filtroArea && area.id != filtroArea) return;
-
-                const areaElement = document.createElement('div');
-                areaElement.className = 'area-section mb-5';
-
-                // Mostrar título del área solo si no está activado "Ocultar Áreas"
-                if (!ocultarAreas) {
-                    const areaTitle = document.createElement('h2');
-                    areaTitle.className = 'area-title';
-                    areaTitle.textContent = `${area.id}. ${area.nombre}`;
-                    if (filtroArea && area.id == filtroArea) areaTitle.classList.add('estado-highlight');
-                    areaElement.appendChild(areaTitle);
-                }
-
-                let areaTieneContenido = false;
-
-                // Mostrar todos los factores de esta área
-                area.factoresClave.forEach(factor => {
-                    // Si hay filtro de factor y no coincide, saltar
-                    if (filtroFactor && factor.id != filtroFactor) return;
-
-                    const factorElement = document.createElement('div');
-                    factorElement.className = 'factor-section mb-4';
-
-                    // Mostrar título del factor solo si no está activado "Ocultar factores claves"
-                    if (!ocultarFactoresClaves) {
-                        const factorTitle = document.createElement('h3');
-                        factorTitle.className = 'factor-title';
-                        factorTitle.textContent = `${factor.id}. ${factor.nombre}`;
-                        if (filtroFactor && factor.id == filtroFactor) factorTitle.classList.add('estado-highlight');
-                        factorTitle.setAttribute('data-factor-id', factor.id);
-                        factorTitle.addEventListener('click', function() {
-                            mostrarElementosBueno(factor.id);
-                        });
-                        factorElement.appendChild(factorTitle);
-                    }
-
-                    let factorTienePropuestas = false;
-
-                    // Mostrar propuestas de este factor
-                    if (factor.propuestas.length > 0) {
-                        factor.propuestas.forEach(propuesta => {
-                            // Verificar si la propuesta coincide con los filtros
-                            let coincideResponsable = !filtroResponsable;
-                            let coincideEstado = !filtroEstado;
-
-                            if (filtroResponsable) {
-                                coincideResponsable = propuesta.indicadores.some(
-                                    indicador => {
-                                        const resps = normalizarResponsable(indicador.responsable);
-                                        return resps.includes(filtroResponsable);
-                                    }
-                                );
-                            }
-
-                            if (filtroEstado) {
-                                coincideEstado = propuesta.estado === filtroEstado;
-                            }
-
-                            if (coincideResponsable && coincideEstado) {
-                                factorTienePropuestas = true;
-                                areaTieneContenido = true;
-                                tieneResultados = true;
-
-                                const propuestaElement = document.createElement('div');
-                                propuestaElement.className = 'propuesta-card';
-
-                                // ID de la propuesta + botón editar
-                                const propuestaIdHeader = document.createElement('div');
-                                propuestaIdHeader.className = 'd-flex justify-content-between align-items-start mb-0';
-                                
-                                const propuestaId = document.createElement('div');
-                                propuestaId.className = 'propuesta-id';
-                                propuestaId.textContent = `Propuesta ${propuesta.id}`;
-                                propuestaIdHeader.appendChild(propuestaId);
-                                
-                                // Determinar si esta propuesta está bloqueada para el usuario actual
-                                const estaBloqueada = edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id];
-
-                                // Botones editar / eliminar (solo si no es usuario de solo lectura)
-                                const btnGroup = document.createElement('div');
-                                btnGroup.className = 'd-flex gap-1 align-items-center';
-
-                                if (!currentUser || currentUser.role !== 'viewer') {
-                                    const btnEditar = document.createElement('button');
-                                    btnEditar.className = 'btn btn-sm btn-outline-primary';
-                                    if (estaBloqueada) {
-                                        btnEditar.classList.add('btn-locked');
-                                        btnEditar.setAttribute('data-lock-tooltip', 'Edicion bloqueada por el administrador');
-                                    }
-                                    btnEditar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/></svg> Editar';
-                                    btnEditar.addEventListener('click', function() {
-                                        if (edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id]) {
-                                            alert('La edición de esta propuesta está bloqueada por el administrador.');
-                                            return;
-                                        }
-                                        abrirModalEditarPropuesta(propuesta);
-                                    });
-                                    btnGroup.appendChild(btnEditar);
-
-                                    const btnEliminar = document.createElement('button');
-                                    btnEliminar.className = 'btn btn-sm btn-outline-danger';
-                                    if (estaBloqueada) {
-                                        btnEliminar.classList.add('btn-locked');
-                                        btnEliminar.setAttribute('data-lock-tooltip', 'Edicion bloqueada por el administrador');
-                                    }
-                                    btnEliminar.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H5.5l1-1h3l1 1h2.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg> Eliminar';
-                                    btnEliminar.addEventListener('click', function() {
-                                        if (edicionBloqueadaParaUsuario() || propuestasBloqueadas[propuesta.id]) {
-                                            alert('La edición de esta propuesta está bloqueada por el administrador.');
-                                            return;
-                                        }
-                                        eliminarPropuesta(propuesta);
-                                    });
-                                    btnGroup.appendChild(btnEliminar);
-
-                                    // Botón de bloqueo individual (solo admin, no visible si el bloqueo afecta al propio admin)
-                                    if (currentUser.role === 'admin' && bloqueoEdicionAlcance !== 'todos') {
-                                        const btnLock = document.createElement('button');
-                                        btnLock.className = 'btn btn-sm btn-outline-secondary btn-lock-individual';
-                                        btnLock.title = propuestasBloqueadas[propuesta.id] ? 'Desbloquear propuesta' : 'Bloquear propuesta';
-                                        if (propuestasBloqueadas[propuesta.id]) {
-                                            btnLock.classList.add('active');
-                                            btnLock.style.background = '#94a3b8';
-                                            btnLock.style.borderColor = '#94a3b8';
-                                            btnLock.style.color = 'white';
-                                        }
-                                        btnLock.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>';
-                                        btnLock.addEventListener('click', function() {
-                                            toggleBloqueoIndividual(propuesta.id);
-                                        });
-                                        btnGroup.appendChild(btnLock);
-                                    }
-                                } // fin if !viewer
-
-                                if (estaBloqueada) {
-                                    propuestaElement.classList.add('propuesta-card-locked');
-                                }
-
-                                propuestaIdHeader.appendChild(btnGroup);
-                                propuestaElement.appendChild(propuestaIdHeader);
-
-                                // Fecha de inclusión
-                                if (propuesta.fechaInclusion) {
-                                    const fechaInc = document.createElement('div');
-                                    fechaInc.className = 'small text-muted mb-2';
-                                    const fechaIncDate = new Date(propuesta.fechaInclusion + 'T00:00:00');
-                                    fechaInc.textContent = 'Fecha de inclusión: ' + fechaIncDate.toLocaleDateString('es-ES');
-                                    propuestaElement.appendChild(fechaInc);
-                                }
-
-                                // Descripción de la propuesta
-                                const propuestaDesc = document.createElement('p');
-                                propuestaDesc.textContent = propuesta.descripcion;
-                                propuestaElement.appendChild(propuestaDesc);
-
-                                // Indicadores
-                                const indicadoresToggle = document.createElement('div');
-                                indicadoresToggle.className = 'indicadores-toggle';
-                                indicadoresToggle.textContent = 'Ver indicadores de evaluación';
-                                indicadoresToggle.addEventListener('click', function() {
-                                    const indicadoresContainer = this.nextElementSibling;
-                                    indicadoresContainer.classList.toggle('collapsed');
-                                    this.textContent = indicadoresContainer.classList.contains('collapsed')
-                                        ? 'Ver indicadores de evaluación'
-                                        : 'Ocultar indicadores de evaluación';
-                                });
-                                propuestaElement.appendChild(indicadoresToggle);
-
-                                const indicadoresContainer = document.createElement('div');
-                                indicadoresContainer.className = 'indicadores-container collapsed';
-
-                                propuesta.indicadores.forEach(indicador => {
-                                    // Si hay filtro de responsable, mostrar solo indicadores de ese responsable
-                                    if (filtroResponsable) {
-                                        const respsFiltro = normalizarResponsable(indicador.responsable);
-                                        if (!respsFiltro.includes(filtroResponsable)) return;
-                                    }
-
-                                    const indicadorElement = document.createElement('div');
-                                    indicadorElement.className = 'indicador-item';
-
-                                    const indicadorDesc = document.createElement('p');
-                                    indicadorDesc.textContent = indicador.descripcion;
-                                    indicadorElement.appendChild(indicadorDesc);
-
-                                    const resps = normalizarResponsable(indicador.responsable);
-                                    if (resps.length > 0) {
-                                        const indicadorResponsable = document.createElement('p');
-                                        indicadorResponsable.className = 'responsable';
-                                        const respTexto = 'Responsable: ' + resps.join(', ');
-                                        if (filtroResponsable) {
-                                            indicadorResponsable.innerHTML = 'Responsable: ' + resps.map(r =>
-                                                r === filtroResponsable
-                                                    ? '<mark class="filtro-highlight">' + r + '</mark>'
-                                                    : r
-                                            ).join(', ');
-                                        } else {
-                                            indicadorResponsable.textContent = respTexto;
-                                        }
-                                        indicadorElement.appendChild(indicadorResponsable);
-                                    }
-
-                                    indicadoresContainer.appendChild(indicadorElement);
-                                });
-
-                                propuestaElement.appendChild(indicadoresContainer);
-
-                                // Estado de la propuesta
-                                const estadoElement = document.createElement('div');
-                                estadoElement.className = 'estado-propuesta';
-
-                                const estadoLabel = document.createElement('h6');
-                                estadoLabel.textContent = 'Estado:';
-                                estadoElement.appendChild(estadoLabel);
-
-                                const estadoContainer = document.createElement('div');
-
-                                const estados = [
-                                    { valor: 'no-iniciada', texto: 'No iniciada', clase: 'estado-no-iniciada' },
-                                    { valor: 'en-proceso', texto: 'En proceso', clase: 'estado-en-proceso' },
-                                    { valor: 'conseguida', texto: 'Conseguida', clase: 'estado-conseguida' }
-                                ];
-
-                                estados.forEach(estado => {
-                                    const estadoDiv = document.createElement('div');
-                                    estadoDiv.className = 'form-check form-check-inline';
-
-                                    const input = document.createElement('input');
-                                    input.className = 'form-check-input estado-check';
-                                    input.type = 'radio';
-                                    input.name = `estado-${propuesta.id}`;
-                                    input.id = `estado-${propuesta.id}-${estado.valor}`;
-                                    input.value = estado.valor;
-                                    input.checked = propuesta.estado === estado.valor;
-                                    // Solo lectura para usuario de tipo "Lectura"
-                                    if (currentUser && currentUser.role === 'viewer') {
-                                        input.disabled = true;
-                                    }
-
-                                    input.addEventListener('change', function() {
-                                        if (this.checked) {
-                                            propuesta.estado = this.value;
-                                            if (this.value === 'conseguida') {
-                                                if (!propuesta.fechaConsecucion) {
-                                                    propuesta.fechaConsecucion = new Date().toISOString().split('T')[0];
-                                                }
-                                            } else {
-                                                propuesta.fechaConsecucion = null;
-                                            }
-                                            guardarEstados();
-                                            actualizarVista();
-                                        }
-                                    });
-
-                                    const label = document.createElement('label');
-                                    label.className = `form-check-label estado-label ${estado.clase}`;
-                                    label.htmlFor = `estado-${propuesta.id}-${estado.valor}`;
-                                    label.textContent = estado.texto;
-                                    if (filtroEstado && estado.valor === filtroEstado) label.classList.add('estado-highlight');
-
-                                    estadoDiv.appendChild(input);
-                                    estadoDiv.appendChild(label);
-                                    estadoContainer.appendChild(estadoDiv);
-                                });
-
-                                estadoElement.appendChild(estadoContainer);
-
-                                // Fecha de consecución (if exists)
-                                if (propuesta.fechaConsecucion) {
-                                    const fechaConDiv = document.createElement('div');
-                                    fechaConDiv.className = 'mt-2 small text-success fw-bold';
-                                    const fechaConDate = new Date(propuesta.fechaConsecucion + 'T00:00:00');
-                                    fechaConDiv.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-check-circle-fill me-1" viewBox="0 0 16 16"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg> Fecha de consecución: ' + fechaConDate.toLocaleDateString('es-ES');
-                                    estadoElement.appendChild(fechaConDiv);
-                                }
-
-                                propuestaElement.appendChild(estadoElement);
-
-                                factorElement.appendChild(propuestaElement);
-                            }
-                        });
-                    }
-
-                    // Si el factor no tiene propuestas pero se debe mostrar
-                    if (!factorTienePropuestas && mostrarFactoresSinPropuestas && factor.propuestas.length === 0) {
-                        areaTieneContenido = true;
-                        tieneResultados = true;
-
-                        const sinPropuestas = document.createElement('p');
-                        sinPropuestas.className = 'factor-sin-propuestas';
-                        sinPropuestas.textContent = 'Este factor clave no tiene propuestas de mejora asociadas.';
-                        factorElement.appendChild(sinPropuestas);
-                    }
-
-                    // Solo añadir el factor si tiene contenido
-                    if (factorTienePropuestas || (mostrarFactoresSinPropuestas && factor.propuestas.length === 0)) {
-                        areaElement.appendChild(factorElement);
-                    }
-                });
-
-                // Solo añadir el área si tiene contenido
-                if (areaTieneContenido) {
-                    listaPropuestas.appendChild(areaElement);
+                const { element, tieneContenido } = renderArea(area);
+                if (tieneContenido) {
+                    listaPropuestas.appendChild(element);
+                    tieneResultados = true;
                 }
             });
 
@@ -4194,7 +4213,7 @@
 
             doc.setFontSize(12);
             doc.setFont(undefined, 'normal');
-            doc.text('Curso 2025-2026', 105, 22, { align: 'center' });
+            doc.text('Curso ' + cursoActual, 105, 22, { align: 'center' });
 
             // Obtener estados seleccionados (orden fijo: no-iniciada, en-proceso, conseguida)
             const ordenEstados = ['no-iniciada', 'en-proceso', 'conseguida'];
@@ -4401,7 +4420,7 @@
 
             doc.setFontSize(12);
             doc.setFont(undefined, 'normal');
-            doc.text('Curso 2025-2026', 105, 22, { align: 'center' });
+            doc.text('Curso ' + cursoActual, 105, 22, { align: 'center' });
 
             // Obtener responsable seleccionado
             const responsableSeleccionado = document.getElementById('reportResponsable').value;
