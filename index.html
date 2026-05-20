@@ -229,6 +229,44 @@
             background-color: #f1f5f9;
             border-color: #cbd5e1;
         }
+        .indicador-estado {
+            margin-top: 8px; padding-top: 8px;
+            border-top: 1px dashed #e2e8f0;
+            display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+        }
+        .indicador-estado-label {
+            font-size: 0.78rem; font-weight: 600; color: var(--secondary-color);
+            margin-right: 4px; white-space: nowrap;
+        }
+        .indicador-estado-check {
+            width: 1em; height: 1em;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+            border: 2px solid #94a3b8;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .indicador-estado-check:hover {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        }
+        .indicador-estado-label-check {
+            margin-right: 6px; font-weight: 600; cursor: pointer;
+            padding: 2px 8px; border-radius: 20px;
+            transition: var(--transition-base);
+            font-size: 0.78rem;
+        }
+        .indicador-estado-label-check.estado-no-iniciada { color: #b91c1c; background-color: #fef2f2; }
+        .indicador-estado-label-check.estado-en-proceso { color: #b45309; background-color: #fffbeb; }
+        .indicador-estado-label-check.estado-conseguida { color: #047857; background-color: #ecfdf5; }
+        .indicador-estado-label-check.estado-no-iniciada:hover { background-color: #fee2e2; }
+        .indicador-estado-label-check.estado-en-proceso:hover { background-color: #fef3c7; }
+        .indicador-estado-label-check.estado-conseguida:hover { background-color: #d1fae5; }
+        .indicador-badge-estado {
+            display: inline-block; font-size: 0.72rem; font-weight: 700;
+            padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+        }
+        .indicador-badge-estado.badge-no-iniciada { color: #b91c1c; background-color: #fef2f2; border: 1px solid #fecaca; }
+        .indicador-badge-estado.badge-en-proceso { color: #b45309; background-color: #fffbeb; border: 1px solid #fde68a; }
+        .indicador-badge-estado.badge-conseguida { color: #047857; background-color: #ecfdf5; border: 1px solid #a7f3d0; }
         .responsable { font-weight: 600; color: var(--accent-color); }
         .indicadores-toggle {
             cursor: pointer; color: var(--primary-color); font-weight: 600;
@@ -267,7 +305,7 @@
         .no-results { text-align: center; padding: 40px; color: var(--secondary-color); }
 
         /* ===== Estado de propuestas ===== */
-        .estado-propuesta { margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; }
+        .estado-propuesta { margin-top: 15px; padding: 12px 14px; border-top: 1px solid #e2e8f0; border-radius: 0 0 var(--radius-sm) var(--radius-sm); background-color: #eef2ff; }
         .estado-check {
             margin-right: 10px;
             width: 1.2em; height: 1.2em;
@@ -647,6 +685,10 @@
             .propuesta-id { font-size: 1rem; }
             .propuesta-id-header { gap: 6px; }
             .indicador-item { padding: 10px; }
+            .indicador-estado { margin-top: 6px; padding-top: 6px; gap: 2px; }
+            .indicador-estado-label { font-size: 0.72rem; margin-right: 2px; }
+            .indicador-estado-check { width: 0.9em; height: 0.9em; }
+            .indicador-estado-label-check { font-size: 0.72rem; padding: 1px 6px; margin-right: 3px; }
 
             /* Botones */
             .btn { font-size: 0.85rem; padding: 6px 12px; }
@@ -655,7 +697,7 @@
             .config-options .buttons-row .btn { width: 100%; }
 
             /* Estado */
-            .estado-propuesta { margin-top: 10px; padding-top: 10px; }
+            .estado-propuesta { margin-top: 10px; padding: 10px; }
             .estado-check { margin-right: 8px; }
             .estado-label { margin-right: 5px; font-size: 0.85rem; padding: 2px 8px; }
             .form-check-inline { display: flex; margin-right: 0; margin-bottom: 4px; }
@@ -2524,7 +2566,8 @@
                         }
                         const indicadoresCopy = (propuesta.indicadores || []).map(ind => ({
                             descripcion: ind.descripcion || '',
-                            responsable: normalizarResponsable(ind.responsable)
+                            responsable: normalizarResponsable(ind.responsable),
+                            estado: 'no-iniciada'
                         }));
                         propuestasACopiar[propuesta.id] = {
                             areaId: area.id,
@@ -3138,7 +3181,8 @@
                     const resps = div.dataset.resps ? JSON.parse(div.dataset.resps) : [];
                     indicadores.push({
                         descripcion: div.dataset.desc,
-                        responsable: resps
+                        responsable: resps,
+                        estado: 'no-iniciada'
                     });
                 });
 
@@ -3263,7 +3307,8 @@
                             // Deep copy indicadores to avoid reference issues with Firestore
                             const indicadoresCopy = (propuesta.indicadores || []).map(ind => ({
                                 descripcion: ind.descripcion || '',
-                                responsable: normalizarResponsable(ind.responsable)
+                                responsable: normalizarResponsable(ind.responsable),
+                                estado: ind.estado || 'no-iniciada'
                             }));
                             datos[propuesta.id] = {
                                 areaId: area.id,
@@ -3330,6 +3375,7 @@
                     factor.propuestas.forEach(propuesta => {
                         propuesta.indicadores.forEach(ind => {
                             ind.responsable = normalizarResponsable(ind.responsable);
+                            if (!ind.estado) ind.estado = 'no-iniciada';
                         });
 
                         if (datos[propuesta.id]) {
@@ -3339,6 +3385,7 @@
                                 propuesta.indicadores = datos[propuesta.id].indicadores;
                                 propuesta.indicadores.forEach(ind => {
                                     ind.responsable = normalizarResponsable(ind.responsable);
+                                    if (!ind.estado) ind.estado = 'no-iniciada';
                                 });
                             }
                             if (datos[propuesta.id].fechaInclusion) propuesta.fechaInclusion = datos[propuesta.id].fechaInclusion;
@@ -3368,7 +3415,8 @@
                                 descripcion: datos[id].descripcion || '',
                                 indicadores: (datos[id].indicadores || []).map(ind => ({
                                     descripcion: ind.descripcion || '',
-                                    responsable: normalizarResponsable(ind.responsable)
+                                    responsable: normalizarResponsable(ind.responsable),
+                                    estado: ind.estado || 'no-iniciada'
                                 })),
                                 estado: datos[id].estado || 'no-iniciada',
                                 fechaInclusion: datos[id].fechaInclusion || '2025-11-15',
@@ -3731,7 +3779,7 @@
             const indicadoresContainer = document.createElement('div');
             indicadoresContainer.className = 'indicadores-container collapsed';
 
-            indicadores.forEach(indicador => {
+            indicadores.forEach((indicador, indIdx) => {
                 // Si hay filtro de responsable, mostrar solo indicadores de ese responsable
                 if (filtroResponsable) {
                     const respsFiltro = normalizarResponsable(indicador.responsable);
@@ -3761,6 +3809,61 @@
                     indicadorElement.appendChild(indicadorResponsable);
                 }
 
+                // Selector de estado del indicador
+                const estadoIndicador = indicador.estado || 'no-iniciada';
+                const radioName = `estado-ind-${propuesta.id}-${indIdx}`;
+                const estadosInd = [
+                    { valor: 'no-iniciada', texto: 'No iniciado', clase: 'estado-no-iniciada', badgeClase: 'badge-no-iniciada' },
+                    { valor: 'en-proceso', texto: 'En proceso', clase: 'estado-en-proceso', badgeClase: 'badge-en-proceso' },
+                    { valor: 'conseguida', texto: 'Conseguido', clase: 'estado-conseguida', badgeClase: 'badge-conseguida' }
+                ];
+
+                const estadoContainer = document.createElement('div');
+                estadoContainer.className = 'indicador-estado';
+
+                const estadoLabelSpan = document.createElement('span');
+                estadoLabelSpan.className = 'indicador-estado-label';
+                estadoLabelSpan.textContent = 'Estado:';
+                estadoContainer.appendChild(estadoLabelSpan);
+
+                const isViewer = currentUser && currentUser.role === 'viewer';
+
+                estadosInd.forEach(estado => {
+                    const estadoDiv = document.createElement('div');
+                    estadoDiv.className = 'form-check form-check-inline';
+                    estadoDiv.style.marginBottom = '0';
+                    estadoDiv.style.marginRight = '0';
+                    estadoDiv.style.paddingTop = '0';
+                    estadoDiv.style.paddingBottom = '0';
+
+                    const input = document.createElement('input');
+                    input.className = 'form-check-input indicador-estado-check';
+                    input.type = 'radio';
+                    input.name = radioName;
+                    input.id = `${radioName}-${estado.valor}`;
+                    input.value = estado.valor;
+                    input.checked = estadoIndicador === estado.valor;
+                    if (isViewer) input.disabled = true;
+
+                    input.addEventListener('change', function() {
+                        if (this.checked) {
+                            indicador.estado = this.value;
+                            guardarEstadosDebounced();
+                            actualizarVista();
+                        }
+                    });
+
+                    const label = document.createElement('label');
+                    label.className = `form-check-label indicador-estado-label-check ${estado.clase}`;
+                    label.htmlFor = `${radioName}-${estado.valor}`;
+                    label.textContent = estado.texto;
+
+                    estadoDiv.appendChild(input);
+                    estadoDiv.appendChild(label);
+                    estadoContainer.appendChild(estadoDiv);
+                });
+
+                indicadorElement.appendChild(estadoContainer);
                 indicadoresContainer.appendChild(indicadorElement);
             });
 
@@ -4171,7 +4274,8 @@
                                         if (dato.indicadores && Array.isArray(dato.indicadores)) {
                                             propuesta.indicadores = dato.indicadores.map(ind => ({
                                                 descripcion: ind.descripcion || '',
-                                                responsable: normalizarResponsable(ind.responsable)
+                                                responsable: normalizarResponsable(ind.responsable),
+                                                estado: ind.estado || 'no-iniciada'
                                             }));
                                         }
                                         if (dato.fechaInclusion) propuesta.fechaInclusion = dato.fechaInclusion;
@@ -4381,7 +4485,7 @@
                     // Descripción del indicador
                     doc.setFontSize(9);
                     doc.setFont(undefined, 'normal');
-                    const indicadorLines = doc.splitTextToSize('- ' + indicador.descripcion, 165);
+                    const indicadorLines = doc.splitTextToSize('- ' + indicador.descripcion, 155);
                     doc.text(indicadorLines, 25, yPosition);
                     yPosition += (indicadorLines.length * 4) + 2;
 
@@ -4393,6 +4497,17 @@
                         doc.text('  Responsable: ' + resps.join(', '), 25, yPosition);
                         yPosition += 5;
                     }
+
+                    // Estado del indicador
+                    const estadoInd = indicador.estado || 'no-iniciada';
+                    const estadoTexto = estadoInd === 'no-iniciada' ? 'No iniciado' : estadoInd === 'en-proceso' ? 'En proceso' : 'Conseguido';
+                    const estadoColor = estadoInd === 'no-iniciada' ? [185, 28, 28] : estadoInd === 'en-proceso' ? [180, 83, 9] : [4, 120, 87];
+                    doc.setFontSize(8);
+                    doc.setFont(undefined, 'bold');
+                    doc.setTextColor(estadoColor[0], estadoColor[1], estadoColor[2]);
+                    doc.text('  Estado: ' + estadoTexto, 25, yPosition);
+                    doc.setTextColor(0, 0, 0);
+                    yPosition += 5;
                 });
 
                 // Espacio entre propuestas
@@ -4537,9 +4652,20 @@
                         // Descripción del indicador
                         doc.setFontSize(9);
                         doc.setFont(undefined, 'normal');
-                        const indicadorLines = doc.splitTextToSize(`• ${indicador.descripcion}`, 165);
+                        const indicadorLines = doc.splitTextToSize(`• ${indicador.descripcion}`, 155);
                         doc.text(indicadorLines, 25, yPosition);
                         yPosition += (indicadorLines.length * 4) + 2;
+
+                        // Estado del indicador
+                        const estadoInd = indicador.estado || 'no-iniciada';
+                        const estadoTexto = estadoInd === 'no-iniciada' ? 'No iniciado' : estadoInd === 'en-proceso' ? 'En proceso' : 'Conseguido';
+                        const estadoColor = estadoInd === 'no-iniciada' ? [185, 28, 28] : estadoInd === 'en-proceso' ? [180, 83, 9] : [4, 120, 87];
+                        doc.setFontSize(8);
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(estadoColor[0], estadoColor[1], estadoColor[2]);
+                        doc.text('  Estado: ' + estadoTexto, 25, yPosition);
+                        doc.setTextColor(0, 0, 0);
+                        yPosition += 5;
                     });
                 }
 
@@ -4593,7 +4719,9 @@
         function renderEditIndicador(indDiv, ind, idx, propuesta) {
             // Normalize in-place so all code paths use the array
             ind.responsable = normalizarResponsable(ind.responsable);
+            if (!ind.estado) ind.estado = 'no-iniciada';
             const resps = ind.responsable;
+            const estadoActual = ind.estado;
             indDiv.innerHTML = `
                 <div class="flex-grow-1">
                     <textarea class="form-control form-control-sm edit-ind-desc" rows="2">${ind.descripcion}</textarea>
@@ -4604,6 +4732,23 @@
                         </div>
                         <div class="col-sm-3">
                             <button class="btn btn-outline-primary btn-sm btn-edit-ind-add-resp" type="button">+ Añadir resp.</button>
+                        </div>
+                    </div>
+                    <div class="edit-ind-estado mt-2 pt-2" style="border-top: 1px dashed #e2e8f0;">
+                        <small class="fw-bold text-muted d-block mb-1">Estado del indicador:</small>
+                        <div class="d-flex flex-wrap gap-2">
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input edit-ind-estado-check" type="radio" name="edit-ind-estado-${idx}" id="edit-ind-estado-${idx}-no-iniciada" value="no-iniciada" ${estadoActual === 'no-iniciada' ? 'checked' : ''}>
+                                <label class="form-check-label estado-label estado-no-iniciada" for="edit-ind-estado-${idx}-no-iniciada" style="font-size:0.82rem;">No iniciado</label>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input edit-ind-estado-check" type="radio" name="edit-ind-estado-${idx}" id="edit-ind-estado-${idx}-en-proceso" value="en-proceso" ${estadoActual === 'en-proceso' ? 'checked' : ''}>
+                                <label class="form-check-label estado-label estado-en-proceso" for="edit-ind-estado-${idx}-en-proceso" style="font-size:0.82rem;">En proceso</label>
+                            </div>
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input edit-ind-estado-check" type="radio" name="edit-ind-estado-${idx}" id="edit-ind-estado-${idx}-conseguida" value="conseguida" ${estadoActual === 'conseguida' ? 'checked' : ''}>
+                                <label class="form-check-label estado-label estado-conseguida" for="edit-ind-estado-${idx}-conseguida" style="font-size:0.82rem;">Conseguido</label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4648,6 +4793,15 @@
                 ind.responsable.push(val);
                 renderBadges();
                 selectEl.value = '';
+            });
+
+            // Estado del indicador radio buttons
+            indDiv.querySelectorAll('.edit-ind-estado-check').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.checked) {
+                        ind.estado = this.value;
+                    }
+                });
             });
         }
 
@@ -4725,6 +4879,9 @@
                     if (desc) {
                         ind.descripcion = desc;
                         ind.responsable = normalizarResponsable(ind.responsable);
+                        // Leer el estado seleccionado en el modal de edición
+                        const estadoRadio = div.querySelector('.edit-ind-estado-check:checked');
+                        if (estadoRadio) ind.estado = estadoRadio.value;
                         indicadoresEditados.push(ind);
                     }
                 }
@@ -4775,7 +4932,7 @@
 
             if (!propuestaEncontrada) return;
 
-            propuestaEncontrada.indicadores.push({ descripcion: desc, responsable: resps });
+            propuestaEncontrada.indicadores.push({ descripcion: desc, responsable: resps, estado: 'no-iniciada' });
             document.getElementById('new-indicador-desc').value = '';
 
             // Clear responsables list
