@@ -1,6 +1,6 @@
 {
-  "name": "Plan de Mejora - IES Virgen de Villadiego",
-  "short_name": "Plan Mejora",
+  "name": "Plan de Mejora V2",
+  "short_name": "PdM V2",
   "description": "Gestión del Plan de Mejora del IES Virgen de Villadiego",
   "start_url": "./index.html",
   "display": "standalone",
