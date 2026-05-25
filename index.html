@@ -217,7 +217,15 @@
         .propuesta-id-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
         @media (hover: none) { .propuesta-card:hover { transform: none; box-shadow: var(--card-shadow); } }
 
+        .propuesta-texto {
+            font-weight: 700;
+        }
+
         /* ===== Indicadores ===== */
+        .indicador-texto {
+            font-weight: 700;
+            font-style: italic;
+        }
         .indicador-item {
             background-color: #f8fafc; border-radius: var(--radius-sm);
             padding: 12px; margin-bottom: 10px;
@@ -289,7 +297,7 @@
             word-wrap: break-word; letter-spacing: -0.02em;
         }
         .factor-title {
-            color: #475569; font-size: 1.1rem; font-weight: 600;
+            color: #475569; font-size: 1.1rem; font-weight: 700;
             margin-top: 20px; cursor: pointer;
             text-decoration: none;
             padding: 10px 14px; user-select: none;
@@ -3790,7 +3798,8 @@
                 indicadorElement.className = 'indicador-item';
 
                 const indicadorDesc = document.createElement('p');
-                indicadorDesc.textContent = indicador.descripcion;
+                indicadorDesc.className = 'indicador-texto';
+                indicadorDesc.textContent = `Indicador ${indIdx + 1}: ${indicador.descripcion}`;
                 indicadorElement.appendChild(indicadorDesc);
 
                 const resps = normalizarResponsable(indicador.responsable);
@@ -4033,6 +4042,7 @@
 
             // Descripción de la propuesta
             const propuestaDesc = document.createElement('p');
+            propuestaDesc.className = 'propuesta-texto';
             propuestaDesc.textContent = propuesta.descripcion;
             propuestaElement.appendChild(propuestaDesc);
 
@@ -4475,7 +4485,7 @@
                 doc.text('Indicadores de evaluacion:', 20, yPosition);
                 yPosition += 6;
 
-                item.propuesta.indicadores.forEach(indicador => {
+                item.propuesta.indicadores.forEach((indicador, idx) => {
                     // Verificar si necesitamos una nueva página para el indicador
                     if (yPosition > 270) {
                         doc.addPage();
@@ -4484,8 +4494,8 @@
 
                     // Descripción del indicador
                     doc.setFontSize(9);
-                    doc.setFont(undefined, 'normal');
-                    const indicadorLines = doc.splitTextToSize('- ' + indicador.descripcion, 155);
+                    doc.setFont(undefined, 'bolditalic');
+                    const indicadorLines = doc.splitTextToSize(`Indicador ${idx + 1}: ` + indicador.descripcion, 165);
                     doc.text(indicadorLines, 25, yPosition);
                     yPosition += (indicadorLines.length * 4) + 2;
 
@@ -4651,8 +4661,9 @@
 
                         // Descripción del indicador
                         doc.setFontSize(9);
-                        doc.setFont(undefined, 'normal');
-                        const indicadorLines = doc.splitTextToSize(`• ${indicador.descripcion}`, 155);
+                        doc.setFont(undefined, 'bolditalic');
+                        const realIdx = item.propuesta.indicadores.indexOf(indicador) + 1;
+                        const indicadorLines = doc.splitTextToSize(`Indicador ${realIdx}: ${indicador.descripcion}`, 165);
                         doc.text(indicadorLines, 25, yPosition);
                         yPosition += (indicadorLines.length * 4) + 2;
 
