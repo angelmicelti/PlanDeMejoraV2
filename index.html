@@ -1934,6 +1934,12 @@
         // datos antiguos en las colecciones compartidas.
         // ============================================================
         async function migrarANamespaceAislado() {
+            // Si ya se migró en una ejecución anterior, no volver a ejecutar
+            if (localStorage.getItem('pmv_migracion_completada') === 'true') {
+                console.log('[Migración] Ya completada previamente. Saltando.');
+                return;
+            }
+
             try {
                 // --- Migrar colección 'users' → 'pmv_users' ---
                 const oldUsersSnap = await db.collection('users').limit(1).get();
@@ -1992,6 +1998,9 @@
                 }
 
                 console.log('[Migración] Proceso de migración completado.');
+
+                // Marcar como completada para no volver a ejecutar en sucesivos arranques
+                localStorage.setItem('pmv_migracion_completada', 'true');
             } catch (error) {
                 console.error('[Migración] Error durante la migración a namespace aislado:', error);
                 // No bloqueamos la aplicación si la migración falla (puede ser por permisos)
