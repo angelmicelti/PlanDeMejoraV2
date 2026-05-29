@@ -1925,6 +1925,79 @@
             return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
+        // ============================================================
+        // MIGRACIÓN DESDE COLECCIONES COMPARTIDAS A COLECCIONES AISLADAS
+        // ============================================================
+        // Esta función migra los datos de las colecciones genéricas
+        // ('users' y 'planMejora') a las colecciones aisladas con prefijo
+        // ('pmv_users' y 'pmv_data'). Se ejecuta una sola vez al detectar
+        // datos antiguos en las colecciones compartidas.
+        // ============================================================
+        async function migrarANamespaceAislado() {
+            try {
+                // --- Migrar colección 'users' → 'pmv_users' ---
+                const oldUsersSnap = await db.collection('users').limit(1).get();
+                const newUsersSnap = await db.collection('pmv_users').limit(1).get();
+
+                if (!oldUsersSnap.empty && newUsersSnap.empty) {
+                    console.log('[Migración] Migrando documentos de "users" a "pmv_users"...');
+                    const allUsers = await db.collection('users').orderBy('createdAt', 'asc').get();
+                    let migratedCount = 0;
+                    for (const doc of allUsers.docs) {
+                        await db.collection('pmv_users').doc(doc.id).set(doc.data());
+                        migratedCount++;
+                    }
+                    console.log('[Migración] ' + migratedCount + ' usuario(s) migrados a pmv_users.');
+
+                    // Eliminar documentos de la colección compartida
+                    for (const doc of allUsers.docs) {
+                        await db.collection('users').doc(doc.id).delete();
+                    }
+                    console.log('[Migración] Documentos originales de "users" eliminados.');
+                } else if (!oldUsersSnap.empty && !newUsersSnap.empty) {
+                    console.log('[Migración] Ambas colecciones "users" y "pmv_users" tienen datos. Eliminando datos de la colección compartida "users" para evitar conflictos...');
+                    const oldUsers = await db.collection('users').get();
+                    for (const doc of oldUsers.docs) {
+                        await db.collection('users').doc(doc.id).delete();
+                    }
+                    console.log('[Migración] Datos residuales de "users" eliminados.');
+                }
+
+                // --- Migrar colección 'planMejora' → 'pmv_data' ---
+                const oldPmSnap = await db.collection('planMejora').limit(1).get();
+                const newPmSnap = await db.collection('pmv_data').limit(1).get();
+
+                if (!oldPmSnap.empty && newPmSnap.empty) {
+                    console.log('[Migración] Migrando documentos de "planMejora" a "pmv_data"...');
+                    const allPm = await db.collection('planMejora').get();
+                    let migratedCount = 0;
+                    for (const doc of allPm.docs) {
+                        await db.collection('pmv_data').doc(doc.id).set(doc.data());
+                        migratedCount++;
+                    }
+                    console.log('[Migración] ' + migratedCount + ' documento(s) migrados a pmv_data.');
+
+                    // Eliminar documentos de la colección compartida
+                    for (const doc of allPm.docs) {
+                        await db.collection('planMejora').doc(doc.id).delete();
+                    }
+                    console.log('[Migración] Documentos originales de "planMejora" eliminados.');
+                } else if (!oldPmSnap.empty && !newPmSnap.empty) {
+                    console.log('[Migración] Ambas colecciones "planMejora" y "pmv_data" tienen datos. Eliminando datos de la colección compartida "planMejora" para evitar conflictos...');
+                    const oldPm = await db.collection('planMejora').get();
+                    for (const doc of oldPm.docs) {
+                        await db.collection('planMejora').doc(doc.id).delete();
+                    }
+                    console.log('[Migración] Datos residuales de "planMejora" eliminados.');
+                }
+
+                console.log('[Migración] Proceso de migración completado.');
+            } catch (error) {
+                console.error('[Migración] Error durante la migración a namespace aislado:', error);
+                // No bloqueamos la aplicación si la migración falla (puede ser por permisos)
+            }
+        }
+
         // Inicialización principal async
         async function initApp() {
             try {
@@ -1933,6 +2006,9 @@
                     firebase.initializeApp(firebaseConfig);
                 }
                 db = firebase.firestore();
+
+                // Migrar datos desde colecciones compartidas a colecciones aisladas
+                await migrarANamespaceAislado();
 
                 // Verificar sesión activa
                 const savedUser = sessionStorage.getItem('plan_mejora_user');
@@ -1966,7 +2042,7 @@
         async function checkUsersAndShowLogin() {
             const errorEl = document.getElementById('login-error');
             try {
-                const snapshot = await db.collection('users').limit(1).get();
+                const snapshot = await db.collection('pmv_users').limit(1).get();
                 if (snapshot.empty) {
                     document.getElementById('login-setup-section').classList.remove('hidden');
                     document.getElementById('login-btn').innerHTML = 'Crear Cuenta de Administrador';
@@ -2071,7 +2147,7 @@
                     }
 
                     const passwordHash = await hashPassword(password);
-                    await db.collection('users').add({
+                    await db.collection('pmv_users').add({
                         username: username,
                         passwordHash: passwordHash,
                         displayName: displayName,
@@ -2086,7 +2162,7 @@
                     mostrarApp();
                 } else {
                     // Login normal
-                    const snapshot = await db.collection('users')
+                    const snapshot = await db.collection('pmv_users')
                         .where('username', '==', username)
                         .limit(1)
                         .get();
@@ -2134,7 +2210,7 @@
         async function cargarListaUsuarios() {
             if (!db || !currentUser || currentUser.role !== 'admin') return;
             try {
-                const snapshot = await db.collection('users').orderBy('createdAt', 'asc').get();
+                const snapshot = await db.collection('pmv_users').orderBy('createdAt', 'asc').get();
                 const listEl = document.getElementById('list-users');
                 listEl.innerHTML = '';
 
@@ -2172,7 +2248,7 @@
                         const docId = this.dataset.docId;
                         if (confirm('¿Eliminar este usuario?')) {
                             try {
-                                await db.collection('users').doc(docId).delete();
+                                await db.collection('pmv_users').doc(docId).delete();
                                 cargarListaUsuarios();
                             } catch (e) {
                                 console.error('Error eliminando usuario:', e);
@@ -2222,7 +2298,7 @@
             }
 
             try {
-                const existing = await db.collection('users').where('username', '==', username).limit(1).get();
+                const existing = await db.collection('pmv_users').where('username', '==', username).limit(1).get();
                 if (!existing.empty) {
                     msgEl.textContent = 'Ese nombre de usuario ya existe.';
                     msgEl.className = 'small fw-bold text-danger mt-2';
@@ -2230,7 +2306,7 @@
                 }
 
                 const passwordHash = await hashPassword(password);
-                await db.collection('users').add({
+                await db.collection('pmv_users').add({
                     username: username,
                     passwordHash: passwordHash,
                     displayName: displayName,
@@ -2281,7 +2357,7 @@
                     updateData.passwordHash = await hashPassword(password);
                 }
 
-                await db.collection('users').doc(docId).update(updateData);
+                await db.collection('pmv_users').doc(docId).update(updateData);
 
                 msgEl.textContent = 'Usuario actualizado correctamente.';
                 msgEl.className = 'small fw-bold text-success';
@@ -2369,7 +2445,7 @@
 
         async function cargarCursos() {
             try {
-                const doc = await db.collection('planMejora').doc('cursos').get();
+                const doc = await db.collection('pmv_data').doc('cursos').get();
                 if (doc.exists && doc.data().lista) {
                     cursosDisponibles = doc.data().lista;
                     cursoActual = doc.data().seleccionado || cursosDisponibles[0];
@@ -2405,7 +2481,7 @@
         async function guardarCursos() {
             if (!db) return;
             try {
-                await db.collection('planMejora').doc('cursos').set({
+                await db.collection('pmv_data').doc('cursos').set({
                     lista: cursosDisponibles,
                     seleccionado: cursoActual
                 });
@@ -2416,17 +2492,17 @@
 
         async function migrarDatosAntiguos() {
             try {
-                const oldDoc = await db.collection('planMejora').doc('estados').get();
+                const oldDoc = await db.collection('pmv_data').doc('estados').get();
                 if (oldDoc.exists) {
                     // Siempre migrar al curso original 2025-2026, nunca a otro curso
                     const newDocId = 'estados_2025_2026';
-                    const newDoc = await db.collection('planMejora').doc(newDocId).get();
+                    const newDoc = await db.collection('pmv_data').doc(newDocId).get();
                     if (!newDoc.exists) {
-                        await db.collection('planMejora').doc(newDocId).set(oldDoc.data());
+                        await db.collection('pmv_data').doc(newDocId).set(oldDoc.data());
                         console.log('Migrados datos antiguos a', newDocId);
                     }
                     // Borrar el documento antiguo para evitar migraciones duplicadas
-                    await db.collection('planMejora').doc('estados').delete();
+                    await db.collection('pmv_data').doc('estados').delete();
                     console.log('Documento antiguo "estados" eliminado tras migración');
                 }
             } catch(e) {
@@ -2514,7 +2590,7 @@
             const docId = 'estados_' + curso.replace('-', '_');
             let numPropuestas = 0;
             try {
-                const doc = await db.collection('planMejora').doc(docId).get();
+                const doc = await db.collection('pmv_data').doc(docId).get();
                 if (doc.exists && doc.data().datos) {
                     numPropuestas = Object.keys(doc.data().datos).filter(id => !doc.data().datos[id].eliminada).length;
                 }
@@ -2529,7 +2605,7 @@
             cursosDisponibles = cursosDisponibles.filter(c => c !== curso);
             // Delete Firestore document for that course
             try {
-                await db.collection('planMejora').doc(docId).delete();
+                await db.collection('pmv_data').doc(docId).delete();
             } catch(e) {
                 console.error('Error eliminando documento del curso:', e);
             }
@@ -2607,14 +2683,14 @@
 
             // Leer documento destino y mezclar propuestas
             try {
-                const docDest = await db.collection('planMejora').doc(docIdDestino).get();
+                const docDest = await db.collection('pmv_data').doc(docIdDestino).get();
                 let datosDestino = {};
                 if (docDest.exists && docDest.data().datos) {
                     datosDestino = docDest.data().datos;
                 }
                 // Las propuestas copiadas sobreescriben las existentes con el mismo ID
                 Object.assign(datosDestino, propuestasACopiar);
-                await db.collection('planMejora').doc(docIdDestino).set({
+                await db.collection('pmv_data').doc(docIdDestino).set({
                     datos: datosDestino,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
@@ -2655,7 +2731,7 @@
 
             try {
                 const docId = 'estados_' + cursoActual.replace('-', '_');
-                await db.collection('planMejora').doc(docId).delete();
+                await db.collection('pmv_data').doc(docId).delete();
                 console.log('Eliminado documento de propuestas del curso', cursoActual);
             } catch(e) {
                 console.error('Error eliminando propuestas:', e);
@@ -3338,7 +3414,7 @@
                 });
                 // Rebuild eliminated list from datos (recreated proposals won't have eliminada flag)
                 propuestasEliminadasGlobal = Object.keys(datos).filter(id => datos[id].eliminada === true);
-                await db.collection('planMejora').doc('estados_' + cursoActual.replace('-', '_')).set({
+                await db.collection('pmv_data').doc('estados_' + cursoActual.replace('-', '_')).set({
                     datos: datos,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
@@ -3439,7 +3515,7 @@
         async function cargarEstados() {
             if (!db) return;
             try {
-                const doc = await db.collection('planMejora').doc('estados_' + cursoActual.replace('-', '_')).get();
+                const doc = await db.collection('pmv_data').doc('estados_' + cursoActual.replace('-', '_')).get();
                 if (doc.exists) {
                     const datos = doc.data().datos || {};
                     mergeEstadosDesdeDatos(datos);
@@ -3447,7 +3523,7 @@
 
                 // Cargar lista de responsables
                 try {
-                    const respDoc = await db.collection('planMejora').doc('responsables').get();
+                    const respDoc = await db.collection('pmv_data').doc('responsables').get();
                     if (respDoc.exists && respDoc.data().lista) {
                         window.listaResponsablesGlobal = respDoc.data().lista;
                     } else {
@@ -3480,7 +3556,7 @@
             if (!db) return;
 
             const docId = 'estados_' + cursoActual.replace('-', '_');
-            unsubscribeEstados = db.collection('planMejora').doc(docId).onSnapshot(function(doc) {
+            unsubscribeEstados = db.collection('pmv_data').doc(docId).onSnapshot(function(doc) {
                 // Si acabamos de guardar nosotros mismos, ignorar este snapshot
                 if (guardadoReciente) {
                     console.log('Snapshot recibido pero es de guardado local, ignorando.');
@@ -3522,7 +3598,7 @@
             if (unsubscribeCursos) { unsubscribeCursos(); unsubscribeCursos = null; }
             if (!db) return;
 
-            unsubscribeCursos = db.collection('planMejora').doc('cursos').onSnapshot(function(doc) {
+            unsubscribeCursos = db.collection('pmv_data').doc('cursos').onSnapshot(function(doc) {
                 if (guardadoReciente) return;
                 if (!doc.exists) return;
                 const data = doc.data();
@@ -3562,7 +3638,7 @@
             if (unsubscribeResponsables) { unsubscribeResponsables(); unsubscribeResponsables = null; }
             if (!db) return;
 
-            unsubscribeResponsables = db.collection('planMejora').doc('responsables').onSnapshot(function(doc) {
+            unsubscribeResponsables = db.collection('pmv_data').doc('responsables').onSnapshot(function(doc) {
                 if (guardadoReciente) return;
                 if (doc.exists && doc.data().lista) {
                     window.listaResponsablesGlobal = doc.data().lista;
@@ -3592,7 +3668,7 @@
         async function guardarBloqueos() {
             if (!db || !currentUser || currentUser.role !== 'admin') return;
             try {
-                await db.collection('planMejora').doc('bloqueos_' + cursoActual.replace('-', '_')).set({
+                await db.collection('pmv_data').doc('bloqueos_' + cursoActual.replace('-', '_')).set({
                     edicionAlcance: bloqueoEdicionAlcance,
                     adicionAlcance: bloqueoAdicionAlcance,
                     individuales: propuestasBloqueadas,
@@ -3607,7 +3683,7 @@
         async function cargarBloqueos() {
             if (!db) return;
             try {
-                const doc = await db.collection('planMejora').doc('bloqueos_' + cursoActual.replace('-', '_')).get();
+                const doc = await db.collection('pmv_data').doc('bloqueos_' + cursoActual.replace('-', '_')).get();
                 if (doc.exists) {
                     const data = doc.data();
                     bloqueoEdicionAlcance = data.edicionAlcance || 'ninguno';
@@ -3635,7 +3711,7 @@
             if (unsubscribeBloqueos) { unsubscribeBloqueos(); unsubscribeBloqueos = null; }
             if (!db) return;
 
-            unsubscribeBloqueos = db.collection('planMejora').doc('bloqueos_' + cursoActual.replace('-', '_')).onSnapshot(function(doc) {
+            unsubscribeBloqueos = db.collection('pmv_data').doc('bloqueos_' + cursoActual.replace('-', '_')).onSnapshot(function(doc) {
                 if (guardadoReciente) return;
                 if (!doc.exists) return;
                 const data = doc.data();
@@ -4987,7 +5063,7 @@
             if (!window.listaResponsablesGlobal.includes(nombre)) {
                 window.listaResponsablesGlobal.push(nombre);
                 if (db) {
-                    db.collection('planMejora').doc('responsables').set({
+                    db.collection('pmv_data').doc('responsables').set({
                         lista: window.listaResponsablesGlobal
                     }, { merge: true });
                 }
