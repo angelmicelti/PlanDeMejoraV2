@@ -836,7 +836,7 @@
             <h1 class="display-4 fw-bold text-primary">PLAN DE MEJORA</h1>
             <p class="lead fw-bold fs-4" id="curso-subtitulo">Curso 2025-2026</p>
             <p class="small text-muted mb-0" id="version-text"></p>
-            <a href="https://raw.githubusercontent.com/angelmicelti/PlanDeMejoraV2/main/Tutorial_Plan_de_Mejora.pdf" download="Tutorial_Plan_de_Mejora.pdf" class="small text-muted text-decoration-none" style="opacity: 0.55; transition: opacity 0.2s; display: inline-block;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='0.55'" title="Descargar tutorial en PDF">📄 Tutorial en PDF</a>
+            <a id="tutorial-pdf-link" href="#" download="" class="small text-muted text-decoration-none" style="opacity: 0.55; transition: opacity 0.2s; display: inline-block;" onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='0.55'" title="Descargar tutorial en PDF">📄 Tutorial en PDF</a>
             <div id="auth-status">
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
                     <span id="user-info-badge" class="badge bg-success font-monospace px-3 py-2 fw-normal hidden"></span>
@@ -978,13 +978,18 @@
                                                 <input type="text" id="new-user-displayname" placeholder="Nombre a mostrar" class="form-control form-control-sm">
                                             </div>
                                         </div>
-                                        <div class="row g-2 mb-3">
+                                        <div class="row g-2 mb-2">
                                             <div class="col-sm-6">
                                                 <input type="password" id="new-user-password" placeholder="Contraseña" class="form-control form-control-sm">
                                             </div>
-                                            <div class="col-sm-4">
+                                            <div class="col-sm-6">
+                                                <input type="password" id="new-user-password-confirm" placeholder="Confirmar contraseña" class="form-control form-control-sm">
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-sm-10">
                                                 <select id="new-user-role" class="form-select form-select-sm">
-                                                    <option value="viewer">Lectura</option>
+                                                    <option value="viewer">Solo Lectura</option>
                                                     <option value="user">Usuario</option>
                                                     <option value="admin">Admin</option>
                                                 </select>
@@ -1278,9 +1283,13 @@
                         <input type="password" id="edit-user-password" class="form-control form-control-sm" placeholder="Nueva contraseña">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label fw-bold">Confirmar nueva contraseña</label>
+                        <input type="password" id="edit-user-password-confirm" class="form-control form-control-sm" placeholder="Confirmar nueva contraseña">
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label fw-bold">Rol</label>
                         <select id="edit-user-role" class="form-select form-select-sm">
-                            <option value="viewer">Lectura</option>
+                            <option value="viewer">Solo Lectura</option>
                             <option value="user">Usuario</option>
                             <option value="admin">Admin</option>
                         </select>
@@ -1880,25 +1889,6 @@
             };
         }
 
-        /* ========== UTILIDAD: CREAR BADGE DE RESPONSABLE (DRY) ========== */
-        // Función reutilizable para crear badges de responsable con botón de eliminar opcional.
-        // Se usa en: formulario nueva propuesta, modal edición, indicadores, etc.
-        function crearBadgeResponsable(nombre, onRemove) {
-            const badge = document.createElement('span');
-            badge.className = 'badge bg-secondary me-1 mb-1';
-            badge.style.cssText = 'font-size:0.8rem; cursor:default;';
-            badge.textContent = nombre;
-            if (onRemove) {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn-close btn-close-white ms-1';
-                btn.style.fontSize = '0.55rem';
-                btn.addEventListener('click', () => onRemove());
-                badge.appendChild(btn);
-            }
-            return badge;
-        }
-
         // Funciones helper para saber si el usuario actual está afectado por el bloqueo
         function edicionBloqueadaParaUsuario() {
             if (bloqueoEdicionAlcance === 'todos') return true;
@@ -2083,12 +2073,23 @@
             document.getElementById('welcomeScreen').classList.add('hidden');
             let roleText = 'Usuario';
             if (currentUser.role === 'admin') roleText = 'Admin';
-            else if (currentUser.role === 'viewer') roleText = 'Lectura';
+            else if (currentUser.role === 'viewer') roleText = 'Solo Lectura';
             document.getElementById('user-info-badge').textContent = roleText + ': ' + currentUser.displayName;
             document.getElementById('user-info-badge').classList.remove('hidden');
             document.getElementById('btn-logout').classList.remove('hidden');
 
-            const esLectura = currentUser.role === 'viewer';
+            const esSoloLectura = currentUser.role === 'viewer';
+
+            // Actualizar enlace del tutorial segun el perfil del usuario
+            const tutorialLink = document.getElementById('tutorial-pdf-link');
+            const tutorialesMap = {
+                'admin': { url: './Tutorial_PlanDeMejora_Admin.pdf', nombre: 'Tutorial_PlanDeMejora_Admin.pdf' },
+                'user': { url: './Tutorial_PlanDeMejora_Usuario.pdf', nombre: 'Tutorial_PlanDeMejora_Usuario.pdf' },
+                'viewer': { url: './Tutorial_PlanDeMejora_SoloLectura.pdf', nombre: 'Tutorial_PlanDeMejora_SoloLectura.pdf' }
+            };
+            const tutorial = tutorialesMap[currentUser.role] || tutorialesMap['user'];
+            tutorialLink.href = tutorial.url;
+            tutorialLink.setAttribute('download', tutorial.nombre);
 
             if (currentUser.role === 'admin') {
                 document.getElementById('user-management-section').classList.remove('hidden');
@@ -2102,7 +2103,7 @@
                 document.getElementById('btnExportar').classList.remove('hidden');
                 document.getElementById('btnImportar').classList.remove('hidden');
                 cargarListaUsuarios();
-            } else if (esLectura) {
+            } else if (esSoloLectura) {
                 document.getElementById('user-management-section').classList.add('hidden');
                 document.getElementById('bloqueo-edicion-section').classList.add('hidden');
                 document.getElementById('btn-anadir-curso').classList.add('hidden');
@@ -2232,7 +2233,7 @@
                     li.className = 'list-group-item d-flex justify-content-between align-items-center bg-light small';
                     let roleBadge = '<span class="badge bg-info">Usuario</span>';
                     if (user.role === 'admin') roleBadge = '<span class="badge bg-danger">Admin</span>';
-                    else if (user.role === 'viewer') roleBadge = '<span class="badge bg-secondary">Lectura</span>';
+                    else if (user.role === 'viewer') roleBadge = '<span class="badge bg-secondary">Solo Lectura</span>';
                     const isCurrentUser = currentUser.username === user.username;
                     li.innerHTML = `
                         <div class="d-flex align-items-center gap-2">
@@ -2275,6 +2276,7 @@
                         document.getElementById('edit-user-username').value = username;
                         document.getElementById('edit-user-displayname').value = displayName;
                         document.getElementById('edit-user-password').value = '';
+                        document.getElementById('edit-user-password-confirm').value = '';
                         document.getElementById('edit-user-role').value = role;
                         document.getElementById('edit-user-msg').textContent = '';
                         document.getElementById('edit-user-msg').className = 'small fw-bold';
@@ -2303,6 +2305,12 @@
                 msgEl.className = 'small fw-bold text-danger mt-2';
                 return;
             }
+            const passwordConfirm = document.getElementById('new-user-password-confirm').value;
+            if (password !== passwordConfirm) {
+                msgEl.textContent = 'Las contraseñas no coinciden.';
+                msgEl.className = 'small fw-bold text-danger mt-2';
+                return;
+            }
 
             try {
                 const existing = await db.collection('pmv_users').where('username', '==', username).limit(1).get();
@@ -2324,6 +2332,7 @@
                 document.getElementById('new-user-username').value = '';
                 document.getElementById('new-user-displayname').value = '';
                 document.getElementById('new-user-password').value = '';
+                document.getElementById('new-user-password-confirm').value = '';
                 document.getElementById('new-user-role').value = 'user';
 
                 msgEl.textContent = 'Usuario "' + displayName + '" creado correctamente.';
@@ -2358,6 +2367,12 @@
                 if (password) {
                     if (password.length < 4) {
                         msgEl.textContent = 'La contraseña debe tener al menos 4 caracteres.';
+                        msgEl.className = 'small fw-bold text-danger';
+                        return;
+                    }
+                    const passwordConfirm = document.getElementById('edit-user-password-confirm').value;
+                    if (password !== passwordConfirm) {
+                        msgEl.textContent = 'Las contraseñas no coinciden.';
                         msgEl.className = 'small fw-bold text-danger';
                         return;
                     }
@@ -2432,6 +2447,9 @@
                     const loginBtn = document.getElementById('login-btn');
                     loginBtn.disabled = false;
                     loginBtn.textContent = 'Iniciar Sesión';
+                    document.getElementById('login-setup-section').classList.add('hidden');
+                    document.getElementById('login-username').value = '';
+                    checkUsersAndShowLogin();
                 }
             });
             document.getElementById('btn-add-user').addEventListener('click', addUser);
@@ -2987,7 +3005,7 @@
                 const modal = new bootstrap.Modal(document.getElementById('nuevoResponsableModal'));
                 modal.show();
             });
-            document.getElementById('btn-guardar-responsable').addEventListener('click', guardarNuevoResponsable);
+            // btn-guardar-responsable se gestiona via onclick en registrarEventListenersPropuestas()
         }
 
         // Sub-función: Nueva propuesta (formulario completo de alta)
@@ -3023,14 +3041,21 @@
                 if (!factor) return;
 
                 let maxOrdinal = 0;
+                let useShortFormat = false;
                 factor.propuestas.forEach(p => {
                     const parts = p.id.split('.');
-                    if (parts.length >= 3) {
+                    if (parts.length === 2) {
+                        useShortFormat = true;
+                        const ordinal = parseInt(parts[1]);
+                        if (ordinal > maxOrdinal) maxOrdinal = ordinal;
+                    } else if (parts.length >= 3) {
                         const ordinal = parseInt(parts[2]);
                         if (ordinal > maxOrdinal) maxOrdinal = ordinal;
                     }
                 });
-                const nextId = factorId + '.' + (maxOrdinal + 1) + '.';
+                const nextId = useShortFormat
+                    ? area.id + '.' + (maxOrdinal + 1)
+                    : factorId + '.' + (maxOrdinal + 1);
                 document.getElementById('np-id').value = nextId;
             });
 
@@ -3130,7 +3155,6 @@
                 const modal = new bootstrap.Modal(document.getElementById('nuevoResponsableModal'));
                 modal.show();
                 // Override save button to also refresh NP selects
-                const originalHandler = document.getElementById('btn-guardar-responsable').onclick;
                 document.getElementById('btn-guardar-responsable').onclick = function() {
                     guardarNuevoResponsable();
                     actualizarSelectResponsables();
@@ -3844,18 +3868,6 @@
                     });
                 });
             });
-        }
-
-        // Función auxiliar: envolver texto coincidente en <mark> para resaltar filtro
-        function resaltarFiltro(texto, filtro) {
-            if (!filtro || !texto) return texto;
-            const escaped = filtro.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp('(' + escaped + ')', 'gi');
-            return texto.replace(regex, '<mark class="filtro-highlight">$1</mark>');
-        }
-
-        function hayFiltrosActivos() {
-            return !!(filtroArea || filtroFactor || filtroResponsable || filtroEstado);
         }
 
         /* =====================================================================
@@ -4675,14 +4687,14 @@
             });
 
             let yPosition = 55;
+            const nombresEstados = {
+                'no-iniciada': 'No iniciada',
+                'en-proceso': 'En proceso',
+                'conseguida': 'Conseguida'
+            };
 
             // Generar contenido para cada propuesta
             propuestasPorResponsable.forEach(item => {
-                const nombresEstados = {
-                    'no-iniciada': 'No iniciada',
-                    'en-proceso': 'En proceso',
-                    'conseguida': 'Conseguida'
-                };
                 const estadoTexto = nombresEstados[item.propuesta.estado];
 
                 // Verificar si necesitamos una nueva página
